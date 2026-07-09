@@ -1,5 +1,4 @@
 name: Build Packages
-
 on:
   workflow_dispatch:
     inputs:
@@ -12,12 +11,10 @@ on:
           - all
           - '24.12'
           - '25.12'
-
 env:
   FEED_NAME: systools
   PKG_NAME: luci-app-systools
   PKG_VERSION: '1.0.0'
-
 jobs:
   build:
     name: Build ${{ matrix.openwrt_version }}
@@ -34,7 +31,6 @@ jobs:
             sdk_target: 'x86/64'
     # 支持选择单个版本编译
     if: ${{ github.event.inputs.version == 'all' || github.event.inputs.version == matrix.openwrt_version }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -66,32 +62,21 @@ jobs:
           echo "==================== 下载 SDK ===================="
           VERSION=${{ matrix.openwrt_version }}
           TARGET=${{ matrix.sdk_target }}
-
           # SDK 下载 URL
           SDK_FILE="openwrt-sdk-${VERSION}-${TARGET//\//_}_gcc-13.3.0_musl.Linux-x86_64.tar.xz"
           SDK_URL="https://downloads.openwrt.org/releases/${VERSION}/targets/${TARGET}/${SDK_FILE}"
-
           echo "SDK 文件名: $SDK_FILE"
           echo "SDK 下载地址: $SDK_URL"
           echo ""
-
-          # 尝试下载 SDK，如果失败则使用 mock 构建
-          if curl -sL --head "$SDK_URL" | grep -q '200 OK'; then
-            echo "正在下载 SDK..."
-            curl -sL "$SDK_URL" -o sdk.tar.xz
-            tar -xf sdk.tar.xz
-            mv openwrt-sdk-* sdk
-            echo "SDK 下载成功"
-            echo "SDK 大小: $(du -h sdk.tar.xz | cut -f1)"
-          else
-            echo "警告: SDK 不可用，使用 mock 构建模式"
-            mkdir -p sdk/bin/packages
-            echo "已创建 mock SDK 目录"
-          fi
-
+          echo "正在下载 SDK..."
+          curl -fSL "$SDK_URL" -o sdk.tar.xz
+          tar -xf sdk.tar.xz
+          mv openwrt-sdk-* sdk
+          echo "SDK 下载成功"
+          echo "SDK 大小: $(du -h sdk.tar.xz | cut -f1)"
           echo ""
           echo "SDK 目录内容:"
-          ls -la sdk/ 2>/dev/null || echo "  (空目录)"
+          ls -la sdk/
           echo "=================================================="
 
       - name: Prepare Package
@@ -99,19 +84,15 @@ jobs:
           echo "==================== 准备包 ===================="
           SDK_DIR=$(pwd)/sdk
           PKG_DIR=$(pwd)
-
           echo "SDK 目录: $SDK_DIR"
           echo "包源码目录: $PKG_DIR"
           echo ""
-
           # 创建 package 目录
           mkdir -p $SDK_DIR/package/$FEED_NAME
           echo "已创建 package/$FEED_NAME 目录"
-
           # 复制插件源码
           cp -r $PKG_DIR/* $SDK_DIR/package/$FEED_NAME/
           echo "已复制插件源码"
-
           echo ""
           echo "包目录内容:"
           ls -la $SDK_DIR/package/$FEED_NAME/
@@ -123,67 +104,51 @@ jobs:
           SDK_DIR=$(pwd)/sdk
           FORMAT=${{ matrix.package_format }}
           VERSION=${{ matrix.openwrt_version }}
-
           # 创建输出目录
           mkdir -p output
-
           echo "构建参数:"
           echo "  格式: $FORMAT"
           echo "  版本: $VERSION"
           echo ""
-
-          # 检查 SDK 是否可用，可用则真正编译
-          if [ -f "$SDK_DIR/include/toplevel.mk" ]; then
-            echo "使用 SDK 真正编译..."
-            cd $SDK_DIR
-            
-            # 更新 feeds 索引
-            ./scripts/feeds update -a 2>/dev/null || true
-            
-            # 编译包
-            make package/$FEED_NAME/compile V=s 2>&1 | tee build.log || {
-              echo "编译失败，尝试使用备用方式..."
-            }
-            
-            # 查找生成的包
-            if [ "$FORMAT" = "ipk" ]; then
-              find bin -name "${PKG_NAME}_*.ipk" -type f 2>/dev/null | head -1 | xargs -I {} cp {} ../output/ 2>/dev/null || true
-            else
-              find bin -name "${PKG_NAME}-*.apk" -type f 2>/dev/null | head -1 | xargs -I {} cp {} ../output/ 2>/dev/null || true
-            fi
-            
-            cd ..
+          echo "开始编译..."
+          cd $SDK_DIR
+          
+          # 更新 feeds 索引
+          ./scripts/feeds update -a 2>&1 | head -50
+          
+          # 编译包
+          make package/$FEED_NAME/compile V=s 2>&1 | tee build.log
+          
+          # 查找生成的包
+          cd ..
+          if [ "$FORMAT" = "ipk" ]; then
+            find sdk/bin -name "${PKG_NAME}_*.ipk" -type f 2>/dev/null | head -1 | xargs -I {} cp {} output/
+          else
+            find sdk/bin -name "${PKG_NAME}-*.apk" -type f 2>/dev/null | head -1 | xargs -I {} cp {} output/
           fi
           
-          # 如果 SDK 编译失败或不可用，生成占位包（保证工作流不中断）
+          # 检查是否成功生成
           if [ -z "$(ls -A output/ 2>/dev/null)" ]; then
-            echo "警告: SDK 编译不可用，生成占位包"
-            if [ "$FORMAT" = "ipk" ]; then
-              PKG_FILE="${PKG_NAME}_${PKG_VERSION}-1_all.ipk"
-              # 生成最小化的 ipk 占位包
-              mkdir -p tmp_ipk/CONTROL
-              echo "Package: $PKG_NAME" > tmp_ipk/CONTROL/control
-              echo "Version: ${PKG_VERSION}-1" >> tmp_ipk/CONTROL/control
-              echo "Architecture: all" >> tmp_ipk/CONTROL/control
-              echo "Maintainer: System Tools Contributors" >> tmp_ipk/CONTROL/control
-              echo "Description: Toolbox for OpenWrt" >> tmp_ipk/CONTROL/control
-              tar -czf output/$PKG_FILE -C tmp_ipk . 2>/dev/null || touch "output/$PKG_FILE"
-              rm -rf tmp_ipk
-            else
-              PKG_FILE="${PKG_NAME}-${PKG_VERSION}-r0.apk"
-              touch "output/$PKG_FILE"
-            fi
-            echo "已生成占位包: $PKG_FILE"
+            echo "错误: 编译失败，未生成包文件"
+            exit 1
           fi
-
+          
           echo ""
-          echo "构建完成！"
+          echo "构建成功！"
           echo ""
           echo "产物列表:"
           ls -la output/
           echo ""
           echo "文件大小:"
           du -h output/*
+          echo ""
+          echo "包内文件列表:"
+          if [ "$FORMAT" = "ipk" ]; then
+            tar -tzf output/*.ipk 2>/dev/null | head -30 || echo "无法列出"
+          else
+            echo "apk 包内容:"
+            apk info -L output/*.apk 2>/dev/null | head -30 || echo "无法列出"
+          fi
           echo "=================================================="
 
       - name: 构建失败诊断
@@ -210,10 +175,9 @@ jobs:
             echo "SDK 目录不存在"
           fi
           echo ""
-          echo "--- 构建日志 ---"
-          if [ -f sdk/logs/build.log ]; then
-            echo "最后 200 行构建日志:"
-            tail -200 sdk/logs/build.log 2>/dev/null || echo "无法读取构建日志"
+          echo "--- 构建日志（最后 200 行）---"
+          if [ -f sdk/build.log ]; then
+            tail -200 sdk/build.log
           else
             echo "未找到构建日志文件"
           fi
@@ -236,7 +200,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -263,69 +226,67 @@ jobs:
       - name: Generate Release Notes
         run: |
           VERSION=${GITHUB_REF_NAME#v}
-
           cat > release_notes.md << EOF
           ## 工具箱 v${VERSION}
-
+          
           ### 版本信息
           - **版本号**：v${VERSION}
           - **发布时间**：$(date +%Y-%m-%d)
           - **提交**：${GITHUB_SHA::7}
-
+          
           ### 支持的 OpenWrt 版本
           - OpenWrt 24.12（ipk 包格式）
           - OpenWrt 25.12（apk 包格式）
-
+          
           ### 架构支持
           - 纯脚本/Lua 实现，架构无关（all）
           - 支持所有 OpenWrt 兼容架构
-
+          
           ### 安装方法
-
+          
           #### OpenWrt 24.12（ipk）
           \`\`\`bash
           # 上传 ipk 文件到路由器后执行
           opkg update
           opkg install luci-app-systools_${VERSION}-1_all.ipk
           \`\`\`
-
+          
           #### OpenWrt 25.12（apk）
           \`\`\`bash
           # 上传 apk 文件到路由器后执行
           apk update
           apk add luci-app-systools-${VERSION}-r0.apk --allow-untrusted
           \`\`\`
-
+          
           ### 安装后
           1. 刷新 LuCI 页面
           2. 在菜单中找到「系统」→「工具箱」
           3. 开始使用
-
+          
           ### 主要功能
-
+          
           #### 网络向导类
           - 上网设置向导（PPPoE / DHCP / 静态IP）
           - IPv6 一键设置（Native / 6to4 / 6in4 / 中继 / 禁用）
           - 旁路由模式（一键切换旁路网关）
           - 设备管理（设备列表、备注名、静态IP绑定）
-
+          
           #### 智能家居类
           - Home Assistant 管理（状态、启停、日志、备份）
           - HA 镜像管理（镜像列表、拉取、删除、国内加速）
           - HA 存储设置（U盘迁移、挂载管理）
           - HA 网络设置（端口管理、mDNS、UPnP）
-
+          
           ### 其他特性
           - 多版本兼容（24.12 / 25.12）
           - Argon 主题深度适配
           - 暗色模式支持
           - 纯脚本/Lua 实现，架构无关
-
+          
           ### 注意事项
           - 首次安装后 uhttpd 会自动重启
           - 如遇问题请提交 Issue
           EOF
-
           cat release_notes.md
 
       - name: Create Release
