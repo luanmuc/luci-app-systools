@@ -1,0 +1,34 @@
+# Build artifacts
+build/
+bin/
+*.ipk
+*.apk
+*.tar.gz
+*.tar.xz
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# SDK / Buildroot
+dl/
+staging_dir/
+build_dir/
+staging/
+feeds/
