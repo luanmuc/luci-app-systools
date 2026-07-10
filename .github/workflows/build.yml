@@ -19,6 +19,7 @@ jobs:
   build:
     name: Build ${{ matrix.openwrt_version }}
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -69,7 +70,7 @@ jobs:
           echo "SDK 下载地址: $SDK_URL"
           echo ""
           echo "正在下载 SDK..."
-          curl -fSL "$SDK_URL" -o sdk.tar.xz
+          curl -fSL --retry 3 --retry-delay 5 "$SDK_URL" -o sdk.tar.xz
           tar -xf sdk.tar.xz
           mv openwrt-sdk-* sdk
           echo "SDK 下载成功"
