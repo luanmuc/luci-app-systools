@@ -48,11 +48,13 @@ rollback_config() {
     else
         rm -f /etc/docker/daemon.json
     fi
+    # ===== 步骤5：重启 Docker =====
     # 重启 Docker
     restart_docker
     echo "配置已回滚"
 }
 
+    # ===== 步骤5：重启 Docker =====
 # 重启 Docker 服务
 restart_docker() {
     echo "正在重启 Docker 服务..."
@@ -107,6 +109,7 @@ migrate_data_root() {
     echo "目标数据目录: $new_path"
     echo ""
 
+    # ===== 步骤1：参数校验 =====
     # 检查目标路径是否存在
     if [ ! -d "$new_path" ]; then
         log_error "目标路径不存在: $new_path"
@@ -189,6 +192,7 @@ EOF
     echo "配置已更新"
     echo ""
 
+    # ===== 步骤5：重启 Docker =====
     # 重启 Docker
     if restart_docker; then
         echo ""
@@ -197,6 +201,7 @@ EOF
         echo "新的数据目录: $new_path"
         log_info "========================================"
 
+    # ===== 步骤6：验证结果 =====
         # 验证新的数据目录
         local new_data_root
         new_data_root=$(get_data_root)
