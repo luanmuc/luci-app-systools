@@ -55,7 +55,7 @@ apk add luci-app-systools-1.0.0-r0.apk --allow-untrusted
 
 安装完成后，刷新 LuCI 页面，在菜单中找到：
 
-**服务** → **工具箱**
+**顶级菜单 **工具箱****
 
 ## ✅ 支持版本
 
