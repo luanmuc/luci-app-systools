@@ -58,9 +58,6 @@ msgstr "Enabled but Not Connected"
 msgid "Disabled"
 msgstr "Disabled"
 
-msgid "Disabled"
-msgstr "Disabled"
-
 msgid "Current Mode"
 msgstr "Current Mode"
 
@@ -1018,32 +1015,6 @@ msgstr "Apply and Restart Docker"
 msgid "配置已应用，Docker 正在重启"
 msgstr "Configuration applied, Docker is restarting"
 
-msgid "Apply Configuration"
-msgstr "Apply Configuration"
-
-msgid "Backup & Restore"
-msgstr "Backup & Restore"
-
-msgid "Disabled"
-msgstr "Disabled"
-
-msgid "Image Management"
-msgstr "Image Management"
-
-msgid "IP Address"
-msgstr "IP Address"
-
-msgid "Network Settings"
-msgstr "Network Settings"
-
-msgid "Protocol"
-msgstr "Protocol"
-
-msgid "System Tools"
-msgstr "System Tools"
-
-# 补充翻译条目
-
 msgid "6in4 Tunnel Configuration"
 msgstr "6in4 Tunnel Configuration"
 
@@ -1310,9 +1281,6 @@ msgstr "After setting, this device will always get this IP address when connecti
 
 msgid "请先安装 Docker 相关包（dockerd、docker-cli 等）后再使用此功能。"
 msgstr "Please install Docker packages (dockerd, docker-cli, etc.) before using this feature."
-
-msgid "--- 选择常用镜像 ---"
-msgstr "--- Select Common Image ---"
 
 msgid "选择设备"
 msgstr "Select Device"
