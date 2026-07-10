@@ -7,8 +7,8 @@
 # 自动备份，失败回滚
 
 BACKUP_DIR="/etc/systools/backup/ipv6"
-BACKUP_FILE="$BACKUP_DIR/ipv6_$(date +%Y%m%d_%H%M%S).tar.gz"
-LATEST_BACKUP="$BACKUP_DIR/ipv6_latest.tar.gz"
+BACKUP_FILE="BACKUP_DIR/ipv6_$(date +%Y%m%d_%H%M%S).tar.gz"
+LATEST_BACKUP="BACKUP_DIR/ipv6_latest.tar.gz"
 
 # 确保备份目录存在
 mkdir -p "$BACKUP_DIR"

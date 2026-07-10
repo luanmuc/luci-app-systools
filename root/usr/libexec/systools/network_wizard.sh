@@ -8,8 +8,8 @@
 . /usr/libexec/systools/systools-common.sh
 
 BACKUP_DIR="/etc/systools/backup/network"
-BACKUP_FILE="$BACKUP_DIR/network_$(date +%Y%m%d_%H%M%S).tar.gz"
-LATEST_BACKUP="$BACKUP_DIR/network_latest.tar.gz"
+BACKUP_FILE="BACKUP_DIR/network_$(date +%Y%m%d_%H%M%S).tar.gz"
+LATEST_BACKUP="BACKUP_DIR/network_latest.tar.gz"
 
 # 确保备份目录存在
 mkdir -p "$BACKUP_DIR"

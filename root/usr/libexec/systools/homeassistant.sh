@@ -161,7 +161,7 @@ backup_ha_config() {
     fi
     
     local backup_file
-    backup_file="$BACKUP_DIR/ha_config_$(date +%Y%m%d_%H%M%S).tar.gz"
+    backup_file="BACKUP_DIR/ha_config_$(date +%Y%m%d_%H%M%S).tar.gz"
     
     tar -czf "$backup_file" -C "$(dirname "$config_path")" "$(basename "$config_path")" 2>/dev/null
     
@@ -190,7 +190,7 @@ list_backups() {
         date=$(echo "$line" | awk '{print $6}')
         time=$(echo "$line" | awk '{print $7}')
         filename=$(echo "$line" | awk '{print $9}')
-        echo "$filename|$size|$date $time"
+        echo "filename|$size|$date $time"
     done
 }
 

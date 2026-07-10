@@ -7,8 +7,8 @@
 # 自动备份，失败回滚
 
 BACKUP_DIR="/etc/systools/backup/side_route"
-BACKUP_FILE="$BACKUP_DIR/side_route_$(date +%Y%m%d_%H%M%S).tar.gz"
-LATEST_BACKUP="$BACKUP_DIR/side_route_latest.tar.gz"
+BACKUP_FILE="BACKUP_DIR/side_route_$(date +%Y%m%d_%H%M%S).tar.gz"
+LATEST_BACKUP="BACKUP_DIR/side_route_latest.tar.gz"
 MODE_FILE="/etc/systools/side_route_mode"
 
 # 确保备份目录存在

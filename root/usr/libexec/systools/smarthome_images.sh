@@ -4,6 +4,14 @@
 # 加载公共函数库
 . /usr/libexec/systools/systools-common.sh
 
+# 异常中断清理函数
+cleanup() {
+    rm -f /tmp/systools_pull_*.log 2>/dev/null
+}
+
+trap cleanup EXIT INT TERM
+
+
 # 获取镜像加速地址
 get_mirror_url() {
     local mirror_source="$1"
@@ -85,6 +93,11 @@ pull_image() {
     fi
     log_audit "docker_pull_start" "image=$1"
     local image_name="$1"
+    if [ -z "$image_name" ]; then
+        log_error "镜像名称不能为空"
+        release_lock "docker_pull"
+        return 1
+    fi
     local mirror_source="$2"
     local custom_mirror="$3"
 
@@ -95,10 +108,10 @@ pull_image() {
         return 1
     fi
 
-    echo "========================================"
+    log_info "========================================"
     echo "开始拉取镜像: $image_name"
     echo "镜像源: $mirror_source"
-    echo "========================================"
+    log_info "========================================"
 
     # 配置镜像加速
     if [ "$mirror_source" != "official" ] && [ -n "$mirror_source" ]; then
@@ -113,19 +126,19 @@ pull_image() {
 
     if docker pull "$image_name" 2>&1; then
         echo ""
-        echo "========================================"
+        log_info "========================================"
         release_lock "docker_pull"
         log_audit "docker_pull_success" "image=$image_name"
         log_info "镜像拉取成功: $image_name"
-        echo "========================================"
+        log_info "========================================"
         return 0
     else
         echo ""
-        echo "========================================"
+        log_info "========================================"
         release_lock "docker_pull"
         log_audit "docker_pull_failed" "image=$image_name"
         log_error "镜像拉取失败: $image_name"
-        echo "========================================"
+        log_info "========================================"
         return 1
     fi
 }

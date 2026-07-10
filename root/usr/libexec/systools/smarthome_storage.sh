@@ -4,6 +4,18 @@
 # 加载公共函数库
 . /usr/libexec/systools/systools-common.sh
 
+# 异常中断清理函数
+cleanup() {
+    # 清理临时文件
+    rm -f /tmp/systools_storage_*.log 2>/dev/null
+    rm -f /tmp/systools_migrate_*.tmp 2>/dev/null
+    # 注意：锁文件保留，由陈旧锁检测机制处理
+}
+
+# 设置信号捕获
+trap cleanup EXIT INT TERM
+
+
 # 获取当前 Docker 数据目录
 get_data_root() {
     check_docker || return 1
@@ -75,7 +87,7 @@ migrate_data_root() {
         log_error "数据迁移正在进行中，请稍后再试"
         return 1
     fi
-    log_audit "docker_migrate_start" "target_path=$1"
+    log_audit "docker_migrate_start" "$target_path=$1"
     local new_path="$1"
     check_docker || return 1
 
@@ -84,9 +96,9 @@ migrate_data_root() {
         return 1
     fi
 
-    echo "========================================"
+    log_info "========================================"
     echo "Docker 数据目录迁移"
-    echo "========================================"
+    log_info "========================================"
 
     # 获取当前数据目录
     local old_path
@@ -170,7 +182,7 @@ migrate_data_root() {
         # 创建新配置
         cat > "$daemon_json" <<EOF
 {
-  "data-root": "$new_path"
+  "data-root": $new_path"
 }
 EOF
     fi
@@ -180,10 +192,10 @@ EOF
     # 重启 Docker
     if restart_docker; then
         echo ""
-        echo "========================================"
+        log_info "========================================"
         log_info "迁移完成！"
         echo "新的数据目录: $new_path"
-        echo "========================================"
+        log_info "========================================"
 
         # 验证新的数据目录
         local new_data_root
@@ -197,7 +209,7 @@ EOF
 
     # 释放锁
     release_lock "docker_migrate"
-    log_audit "docker_migrate_success" "target_path=$new_path"
+    log_audit "docker_migrate_success" "$target_path=$new_path"
         # 清理备份
         rm -rf "$backup_dir"
         return 0
@@ -206,7 +218,7 @@ EOF
         log_error "Docker 重启失败"
         echo "正在回滚..."
         release_lock "docker_migrate"
-        log_audit "docker_migrate_failed" "target_path=$new_path"
+        log_audit "docker_migrate_failed" "$target_path=$new_path"
         rollback_config "$backup_dir"
         return 1
     fi
@@ -247,6 +259,11 @@ get_storage_status() {
 # 格式化U盘为ext4
 format_disk() {
     local device="$1"
+    # 获取并发锁
+    if ! acquire_lock "disk_format"; then
+        log_error "格式化操作正在进行中，请稍后再试"
+        return 1
+    fi
     if [ -z "$device" ]; then
         log_error "请指定设备路径"
         return 1
@@ -258,9 +275,9 @@ format_disk() {
         return 1
     fi
 
-    echo "========================================"
+    log_info "========================================"
     echo "格式化设备: $device"
-    echo "========================================"
+    log_info "========================================"
     echo "警告：格式化将删除设备上所有数据！"
     echo ""
 
@@ -287,9 +304,9 @@ format_disk() {
     # 执行格式化
     if mkfs.ext4 -F "$device" >/dev/null 2>&1; then
         echo ""
-        echo "========================================"
+        log_info "========================================"
         log_info "格式化完成！"
-        echo "========================================"
+        log_info "========================================"
         return 0
     else
         echo ""
