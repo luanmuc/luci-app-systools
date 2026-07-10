@@ -11,19 +11,6 @@ local sys = require "luci.sys"
 
 -- 路径净化函数，防止路径遍历
 -- 循环净化直到没有变化，覆盖 ../、..\、....// 等各种变形
-local function sanitize_path(path)
-    if not path then return "" end
-    local prev
-    repeat
-        prev = path
-        -- 移除各种路径遍历模式
-        path = path:gsub("%.%./", "")      -- ../
-        path = path:gsub("%.%.\\", "")     -- ..\
-        path = path:gsub("%.%.%.%./", "")  -- ..../
-        path = path:gsub("//+", "/")       -- 多个连续斜杠
-        path = path:gsub("\\\\+", "\\")    -- 多个连续反斜杠
-        path = path:gsub("^%./", "")       -- 开头的 ./
-        path = path:gsub("/%.$", "/")      -- 结尾的 /.
     until path == prev
     -- 确保路径以 / 开头
     if not path:match("^/") then
@@ -175,7 +162,7 @@ function o.write(self, section)
     end
 
     -- 净化路径，防止路径遍历
-    new_path = sanitize_path(new_path)
+    new_path = systools_common.sanitize_path(new_path)
 
     -- 检查目标路径是否存在
     if not sys.exec("test -d " .. systools_common.shell_escape(new_path) .. " && echo yes || echo no"):match("yes") then

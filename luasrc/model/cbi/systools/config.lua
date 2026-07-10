@@ -59,7 +59,8 @@ btn_import.write = function(self, section)
     -- ===== 白名单校验 =====
     -- 1. 必须包含 package systools 声明
     if not import_content:match("package%s+systools") then
-        return -- 格式错误，拒绝导入
+        m.message = translate("导入失败：配置格式不正确，必须包含 systools 包声明")
+        return
     end
     
     -- 2. 禁止包含其他 package 的配置（安全白名单）
@@ -70,12 +71,14 @@ btn_import.write = function(self, section)
         end
     end
     if #other_packages > 0 then
-        return -- 包含其他包，拒绝导入
+        m.message = translate("导入失败：不允许包含其他包的配置")
+        return
     end
     
     -- 3. 基本格式校验：检查是否有明显异常字符
     if import_content:match("[<>;|`$]") and not import_content:match("option%s+") then
-        return -- 可疑内容，拒绝导入
+        m.message = translate("导入失败：配置内容包含可疑字符")
+        return
     end
     
     -- 先备份当前配置

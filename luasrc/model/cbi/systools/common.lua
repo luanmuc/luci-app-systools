@@ -1,3 +1,9 @@
+--[[
+    systools/common.lua - System Tools 公共Lua模块
+    提供 shell_escape 命令转义和 sanitize_path 路径净化函数
+    所有CBI页面共享的安全工具函数
+]]--
+
 -- Copyright 2024 luci-app-systools
 -- Licensed to the public under the MIT License.
 --

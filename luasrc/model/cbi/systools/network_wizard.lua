@@ -97,6 +97,7 @@ o.description = translate("Clone MAC address for ISP binding scenarios")
 -- MTU 设置
 o = s_advanced:option(Value, "wan_mtu", translate("WAN MTU"),
     translate("Maximum Transmission Unit. Default is 1500, PPPoE recommended 1492."))
+    o.datatype = "uinteger"
 o.datatype = "range(576, 1500)"
 o.optional = true
 o.default = "1500"

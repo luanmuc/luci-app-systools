@@ -43,6 +43,7 @@ o.value = lan_ip
 o = s:option(DummyValue, "_gateway", translate("默认网关"))
 o.value = gateway
     o.datatype = "ip4addr"
+    o.datatype = "ip4addr"
 
 -- DHCP 状态
 o = s:option(DummyValue, "_dhcp", translate("DHCP 服务器"))

@@ -56,6 +56,7 @@ if ha_status.status == "not_found" then
     -- 镜像源选择
     o = s_wizard:option(ListValue, "image_source", translate("镜像源"))
     o:value("official", translate("官方源 (ghcr.io)"))
+    o.datatype = "string"
     o:value("aliyun", translate("阿里云镜像"))
     o:value("netease", translate("网易云镜像"))
     o:value("ustc", translate("中科大镜像"))
@@ -66,6 +67,7 @@ if ha_status.status == "not_found" then
     -- 自定义镜像地址
     o = s_wizard:option(Value, "custom_image", translate("自定义镜像地址"))
     o.description = translate("选择自定义镜像源时填写，例如：registry.example.com/ha:latest")
+    o.datatype = "string"
     o.placeholder = "ghcr.io/home-assistant/home-assistant:stable"
     o:depends("image_source", "custom")
 
@@ -177,6 +179,7 @@ o.value = ha_status.container_id or "N/A"
 -- 镜像名
 o = s:option(DummyValue, "_image", translate("Image"))
 o.value = ha_status.image or "N/A"
+    o.datatype = "string"
 
 -- 版本
 o = s:option(DummyValue, "_version", translate("Version"))

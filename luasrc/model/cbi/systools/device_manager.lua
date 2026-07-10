@@ -82,6 +82,7 @@ ip_col.forcewrite = true
 -- MAC 地址
 local mac_col = tbl:option(DummyValue, "mac", translate("MAC 地址"))
 mac_col.forcewrite = true
+    o.datatype = "macaddr"
 
 -- 设备名称
 local name_col = tbl:option(DummyValue, "nickname", translate("设备名称"))
@@ -133,6 +134,7 @@ s.addremove = false
 
 o = s:option(ListValue, "device_mac", translate("选择设备"))
 for _, dev in ipairs(devices) do
+    o.datatype = "macaddr"
     o:value(dev.mac, dev.nickname .. " (" .. dev.ip .. ")")
 end
 o.rmempty = false
@@ -148,6 +150,7 @@ s.addremove = false
 
 o = s:option(ListValue, "device_mac", translate("选择设备"))
 for _, dev in ipairs(devices) do
+    o.datatype = "macaddr"
     o:value(dev.mac, dev.nickname .. " (" .. dev.ip .. ")")
 end
 o.rmempty = false
