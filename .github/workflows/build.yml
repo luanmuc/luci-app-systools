@@ -1,9 +1,9 @@
-name: Build Packages
+name: Build luci-app-systools 工具箱插件
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'OpenWrt 版本（all 表示全部编译）'
+        description: '选择要编译的 OpenWrt 版本'
         required: false
         default: 'all'
         type: choice
