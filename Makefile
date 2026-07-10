@@ -118,8 +118,13 @@ define Package/luci-app-systools/install
 		for lang in $(PKG_BUILD_DIR)/po/*/; do \
 			lang_name=$$(basename $$lang); \
 			if [ -f $$lang/systools.po ]; then \
-				echo "Compiling translation: $$lang_name"; \
-				po2lmo $$lang/systools.po $(1)/usr/lib/lua/luci/i18n/systools.$$lang_name.lmo 2>/dev/null || true; \
+				if command -v po2lmo >/dev/null 2>&1; then \
+					echo "Compiling translation: $$lang_name"; \
+					po2lmo $$lang/systools.po $(1)/usr/lib/lua/luci/i18n/systools.$$lang_name.lmo; \
+				else \
+					echo "WARNING: po2lmo not found, skipping translation compile for $$lang_name"; \
+					echo "         Install luci-base package to get po2lmo tool"; \
+				fi; \
 			fi; \
 		done; \
 	fi
