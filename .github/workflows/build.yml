@@ -11,6 +11,9 @@ on:
           - all
           - '24.12'
           - '25.12'
+  push:
+    tags:
+      - 'v*'
 env:
   FEED_NAME: systools
   PKG_NAME: luci-app-systools
@@ -36,6 +39,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: 缓存 SDK 和 dl 目录
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            sdk
+            sdk/dl
+          key: ${{ runner.os }}-sdk-${{ matrix.openwrt_version }}-${{ hashFiles('**/Makefile') }}
+          restore-keys: |
+            ${{ runner.os }}-sdk-${{ matrix.openwrt_version }}-
+            ${{ runner.os }}-sdk-
+
       - name: 打印环境信息
         run: |
           echo "==================== 环境信息 ===================="
@@ -59,6 +74,8 @@ jobs:
           echo "=================================================="
 
       - name: Download SDK
+        if: steps.cache.outputs.cache-hit != 'true'
+        id: sdk_download
         run: |
           echo "==================== 下载 SDK ===================="
           VERSION=${{ matrix.openwrt_version }}
@@ -123,9 +140,23 @@ jobs:
           # 查找生成的包
           cd ..
           if [ "$FORMAT" = "ipk" ]; then
-            find sdk/bin -name "${PKG_NAME}_*.ipk" -type f 2>/dev/null | head -1 | xargs -I {} cp {} output/
+            # 多种匹配模式，确保能找到
+            PKG_FILE=$(find sdk/bin -name "${PKG_NAME}_*.ipk" -type f 2>/dev/null | head -1)
+            if [ -z "$PKG_FILE" ]; then
+              PKG_FILE=$(find sdk/bin -name "*${PKG_NAME}*.ipk" -type f 2>/dev/null | head -1)
+            fi
+            if [ -n "$PKG_FILE" ]; then
+              cp "$PKG_FILE" output/
+            fi
           else
-            find sdk/bin -name "${PKG_NAME}-*.apk" -type f 2>/dev/null | head -1 | xargs -I {} cp {} output/
+            # 多种匹配模式，确保能找到 apk 包
+            PKG_FILE=$(find sdk/bin -name "${PKG_NAME}-*.apk" -type f 2>/dev/null | head -1)
+            if [ -z "$PKG_FILE" ]; then
+              PKG_FILE=$(find sdk/bin -name "*${PKG_NAME}*.apk" -type f 2>/dev/null | head -1)
+            fi
+            if [ -n "$PKG_FILE" ]; then
+              cp "$PKG_FILE" output/
+            fi
           fi
           
           # 检查是否成功生成
@@ -187,6 +218,137 @@ jobs:
           env | grep -i -E 'openwrt|sdk|pkg|feed' | sort
           echo "=================================================="
 
+      - name: 产物校验
+        run: |
+          echo "==================== 产物校验 ===================="
+          FORMAT=${{ matrix.package_format }}
+          PKG_FILE=$(ls output/* 2>/dev/null | head -1)
+          
+          if [ -z "$PKG_FILE" ]; then
+            echo "错误: 未找到产物文件"
+            exit 1
+          fi
+          
+          echo "校验文件: $PKG_FILE"
+          echo ""
+          
+          ERROR_COUNT=0
+          
+          if [ "$FORMAT" = "ipk" ]; then
+            echo "--- 检查 ipk 包结构 ---"
+            # 检查控制文件
+            if tar -tzf "$PKG_FILE" | grep -q "control.tar.gz"; then
+              echo "✓ control.tar.gz 存在"
+            else
+              echo "✗ control.tar.gz 不存在"
+              ERROR_COUNT=$((ERROR_COUNT + 1))
+            fi
+            # 检查数据文件
+            if tar -tzf "$PKG_FILE" | grep -q "data.tar.gz"; then
+              echo "✓ data.tar.gz 存在"
+            else
+              echo "✗ data.tar.gz 不存在"
+              ERROR_COUNT=$((ERROR_COUNT + 1))
+            fi
+            
+            # 解压检查关键文件
+            echo ""
+            echo "--- 检查关键文件 ---"
+            mkdir -p /tmp/ipk-check
+            tar -xzf "$PKG_FILE" -C /tmp/ipk-check
+            
+            # 检查控制文件
+            if tar -tzf /tmp/ipk-check/control.tar.gz | grep -q "./control"; then
+              echo "✓ 控制文件 (control) 存在"
+            else
+              echo "✗ 控制文件 (control) 不存在"
+              ERROR_COUNT=$((ERROR_COUNT + 1))
+            fi
+            
+            # 检查 Lua 文件
+            if tar -tzf /tmp/ipk-check/data.tar.gz | grep -q "systools.lua"; then
+              echo "✓ Lua 控制器文件存在"
+            else
+              echo "✗ Lua 控制器文件不存在"
+              ERROR_COUNT=$((ERROR_COUNT + 1))
+            fi
+            
+            # 检查 Shell 脚本
+            if tar -tzf /tmp/ipk-check/data.tar.gz | grep -q "systools.*\.sh"; then
+              echo "✓ Shell 脚本文件存在"
+            else
+              echo "✗ Shell 脚本文件不存在"
+              ERROR_COUNT=$((ERROR_COUNT + 1))
+            fi
+            
+            # 检查配置文件
+            if tar -tzf /tmp/ipk-check/data.tar.gz | grep -q "config/systools"; then
+              echo "✓ UCI 配置文件存在"
+            else
+              echo "✗ UCI 配置文件不存在"
+              ERROR_COUNT=$((ERROR_COUNT + 1))
+            fi
+            
+            rm -rf /tmp/ipk-check
+          else
+            echo "--- 检查 apk 包结构 ---"
+            # apk 格式校验
+            if command -v apk >/dev/null 2>&1; then
+              apk info -L "$PKG_FILE" > /tmp/apk-list.txt 2>/dev/null
+              
+              # 检查控制文件
+              if grep -q ".PKGINFO" /tmp/apk-list.txt; then
+                echo "✓ .PKGINFO 控制文件存在"
+              else
+                echo "✗ .PKGINFO 控制文件不存在"
+                ERROR_COUNT=$((ERROR_COUNT + 1))
+              fi
+              
+              # 检查 Lua 文件
+              if grep -q "systools.lua" /tmp/apk-list.txt; then
+                echo "✓ Lua 控制器文件存在"
+              else
+                echo "✗ Lua 控制器文件不存在"
+                ERROR_COUNT=$((ERROR_COUNT + 1))
+              fi
+              
+              # 检查 Shell 脚本
+              if grep -q "systools.*\.sh" /tmp/apk-list.txt; then
+                echo "✓ Shell 脚本文件存在"
+              else
+                echo "✗ Shell 脚本文件不存在"
+                ERROR_COUNT=$((ERROR_COUNT + 1))
+              fi
+              
+              # 检查配置文件
+              if grep -q "config/systools" /tmp/apk-list.txt; then
+                echo "✓ UCI 配置文件存在"
+              else
+                echo "✗ UCI 配置文件不存在"
+                ERROR_COUNT=$((ERROR_COUNT + 1))
+              fi
+              
+              rm -f /tmp/apk-list.txt
+            else
+              echo "⚠ apk 命令不可用，跳过详细校验"
+              # 基础文件存在性检查
+              if [ -s "$PKG_FILE" ]; then
+                echo "✓ apk 文件非空"
+              else
+                echo "✗ apk 文件为空"
+                ERROR_COUNT=$((ERROR_COUNT + 1))
+              fi
+            fi
+          fi
+          
+          echo ""
+          echo "校验结果: $ERROR_COUNT 个错误"
+          if [ "$ERROR_COUNT" -gt 0 ]; then
+            echo "错误: 产物校验失败"
+            exit 1
+          fi
+          echo "✓ 产物校验通过"
+          echo "=================================================="
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -261,7 +423,7 @@ jobs:
           
           ### 安装后
           1. 刷新 LuCI 页面
-          2. 在菜单中找到「系统」→「工具箱」
+          2. 在菜单中找到「服务」→「工具箱」
           3. 开始使用
           
           ### 主要功能
