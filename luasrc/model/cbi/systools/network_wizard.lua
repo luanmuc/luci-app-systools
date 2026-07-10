@@ -1,11 +1,7 @@
 -- Copyright 2024 luci-app-systools
 -- Licensed to the public under the MIT License.
 
--- Shell 转义函数，防止命令注入
-local function shell_escape(str)
-    if not str then return "" end
-    return "'" .. string.gsub(str, "'", "'\\''") .. "'"
-end
+local systools_common = require "luci.model.cbi.systools.common"
 
 m = Map("systools", translate("Internet Setup Wizard"),
     translate("Step-by-step guide to configure your network. Suitable for beginners."))
@@ -138,16 +134,16 @@ function btn_apply.write(self, section)
     -- 构建高级参数
     local advanced_args = ""
     if wan_mac and #wan_mac > 0 then
-        advanced_args = advanced_args .. " mac=" .. shell_escape(wan_mac)
+        advanced_args = advanced_args .. " mac=" .. systools_common.shell_escape(wan_mac)
     end
     if wan_mtu and #wan_mtu > 0 then
-        advanced_args = advanced_args .. " mtu=" .. shell_escape(wan_mtu)
+        advanced_args = advanced_args .. " mtu=" .. systools_common.shell_escape(wan_mtu)
     end
     if dns_primary and #dns_primary > 0 then
-        advanced_args = advanced_args .. " dns1=" .. shell_escape(dns_primary)
+        advanced_args = advanced_args .. " dns1=" .. systools_common.shell_escape(dns_primary)
     end
     if dns_secondary and #dns_secondary > 0 then
-        advanced_args = advanced_args .. " dns2=" .. shell_escape(dns_secondary)
+        advanced_args = advanced_args .. " dns2=" .. systools_common.shell_escape(dns_secondary)
     end
 
     if conn_type == "pppoe" then
@@ -155,9 +151,9 @@ function btn_apply.write(self, section)
         local pass = m:formvalue("cbid.systools.wizard.pppoe_password")
         if user and pass and #user > 0 and #pass > 0 then
             local cmd = string.format("/usr/libexec/systools/network_wizard.sh pppoe %s %s%s >/dev/null 2>&1 &",
-                shell_escape(user), shell_escape(pass), advanced_args)
+                systools_common.shell_escape(user), systools_common.shell_escape(pass), advanced_args)
             luci.sys.call(cmd)
-            luci.http.redirect(luci.dispatcher.build_url("admin", "systools", "network", "wizard"))
+            luci.http.redirect(luci.dispatcher.build_url("admin", "systools", "wizard", "network_wizard"))
         else
             m.message = translate("Please enter username and password")
         end
@@ -171,16 +167,16 @@ function btn_apply.write(self, section)
         local dns = m:formvalue("cbid.systools.wizard.static_dns")
         if ip and gw and #ip > 0 and #gw > 0 then
             local cmd = string.format("/usr/libexec/systools/network_wizard.sh static %s %s",
-                shell_escape(ip), shell_escape(gw))
+                systools_common.shell_escape(ip), systools_common.shell_escape(gw))
             if mask and #mask > 0 then
-                cmd = cmd .. " " .. shell_escape(mask)
+                cmd = cmd .. " " .. systools_common.shell_escape(mask)
             end
             if dns and #dns > 0 then
-                cmd = cmd .. " " .. shell_escape(dns)
+                cmd = cmd .. " " .. systools_common.shell_escape(dns)
             end
             cmd = cmd .. advanced_args
             luci.sys.call(cmd .. " >/dev/null 2>&1 &")
-            luci.http.redirect(luci.dispatcher.build_url("admin", "systools", "network", "wizard"))
+            luci.http.redirect(luci.dispatcher.build_url("admin", "systools", "wizard", "network_wizard"))
         else
             m.message = translate("Please enter IP address and gateway")
         end

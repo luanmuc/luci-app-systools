@@ -1,30 +1,34 @@
--- Copyright 2026 systools
--- Licensed to the public under the Apache License 2.0.
+-- Copyright 2024 luci-app-systools
+-- Licensed to the public under the MIT License.
 
+local systools_common = require "luci.model.cbi.systools.common"
 local m, s, o
 local http = require "luci.http"
 local sys = require "luci.sys"
 
--- Shell 转义函数，防止命令注入
-local function shell_escape(str)
-    if not str then return "" end
-    return "'" .. string.gsub(str, "'", "'\\''") .. "'"
-end
 
 -- 路径净化函数，防止路径遍历
+
+-- 路径净化函数，防止路径遍历
+-- 循环净化直到没有变化，覆盖 ../、..\、....// 等各种变形
 local function sanitize_path(path)
     if not path then return "" end
-    -- 移除 ../ 和 ./ 等路径遍历字符
-    path = path:gsub("%.%./", "")
-    path = path:gsub("^%./", "")
-    path = path:gsub("/%.$", "/")
+    local prev
+    repeat
+        prev = path
+        -- 移除各种路径遍历模式
+        path = path:gsub("%.%./", "")      -- ../
+        path = path:gsub("%.%.\\", "")     -- ..\
+        path = path:gsub("%.%.%.%./", "")  -- ..../
+        path = path:gsub("//+", "/")       -- 多个连续斜杠
+        path = path:gsub("\\\\+", "\\")    -- 多个连续反斜杠
+        path = path:gsub("^%./", "")       -- 开头的 ./
+        path = path:gsub("/%.$", "/")      -- 结尾的 /.
+    until path == prev
     -- 确保路径以 / 开头
     if not path:match("^/") then
         path = "/" .. path
     end
-    return path
-end
-
 m = Map("systools", translate("Docker 存储设置"),
     translate("管理 Docker 数据存储位置，支持迁移到 U 盘"))
 
@@ -174,14 +178,14 @@ function o.write(self, section)
     new_path = sanitize_path(new_path)
 
     -- 检查目标路径是否存在
-    if not sys.exec("test -d " .. shell_escape(new_path) .. " && echo yes || echo no"):match("yes") then
+    if not sys.exec("test -d " .. systools_common.shell_escape(new_path) .. " && echo yes || echo no"):match("yes") then
         self.description = '<span style="color:red">' .. translate("目标路径不存在，请先挂载 U 盘") .. '</span>'
         return
     end
 
     -- 执行迁移（后台执行）
     local cmd = string.format("/usr/libexec/systools/smarthome_storage.sh migrate %s >/tmp/systools_migrate.log 2>&1 &",
-        shell_escape(new_path))
+        systools_common.shell_escape(new_path))
     sys.call(cmd)
 
     self.description = '<span style="color:green">' .. translate("开始迁移，请稍候...") .. '<br>' ..
@@ -233,8 +237,8 @@ function o.write(self, section)
 
     -- 执行配置
     local cmd = string.format("/usr/libexec/systools/smarthome_images.sh configure_mirror %s %s >/dev/null 2>&1 &",
-        shell_escape(mirror_source),
-        shell_escape(custom_mirror or ""))
+        systools_common.shell_escape(mirror_source),
+        systools_common.shell_escape(custom_mirror or ""))
     sys.call(cmd)
 
     self.description = '<span style="color:green">' .. translate("配置已应用，Docker 正在重启") .. '</span>'
