@@ -89,7 +89,8 @@ close_port() {
         local total=$(uci show firewall 2>/dev/null | grep -c "^firewall.@rule\[")
         
         # 从最后一个规则往前遍历
-        for ((count = total - 1; count >= 0; count--)); do
+        count=$((total - 1))
+        while [ "$count" -ge 0 ]; do
             local rule_name
             rule_name=$(uci get "firewall.@rule[$count].name" 2>/dev/null)
             
@@ -108,6 +109,7 @@ close_port() {
                     break  # 索引变了，重新从后往前找
                 fi
             fi
+            count=$((count - 1))
         done
     done
     
