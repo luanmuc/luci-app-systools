@@ -80,6 +80,8 @@ define Package/luci-app-systools/install
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luasrc/model/cbi/systools/smarthome_images.lua $(1)/usr/lib/lua/luci/model/cbi/systools/smarthome_images.lua
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luasrc/model/cbi/systools/smarthome_storage.lua $(1)/usr/lib/lua/luci/model/cbi/systools/smarthome_storage.lua
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luasrc/model/cbi/systools/smarthome_network.lua $(1)/usr/lib/lua/luci/model/cbi/systools/smarthome_network.lua
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luasrc/model/cbi/systools/config.lua $(1)/usr/lib/lua/luci/model/cbi/systools/config.lua
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/luasrc/model/cbi/systools/common.lua $(1)/usr/lib/lua/luci/model/cbi/systools/common.lua
 
 	# 静态资源 (CSS 等)
 	$(INSTALL_DIR) $(1)/www/luci-static/resources/systools
