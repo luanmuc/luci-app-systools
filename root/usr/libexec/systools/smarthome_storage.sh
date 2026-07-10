@@ -1,14 +1,8 @@
 #!/bin/sh
 # Docker 存储管理后端脚本
 
-# 检查 Docker 是否安装
-check_docker() {
-    if ! command -v docker >/dev/null 2>&1; then
-        echo "ERROR: Docker not installed"
-        return 1
-    fi
-    return 0
-}
+# 加载公共函数库
+. /usr/libexec/systools/systools-common.sh
 
 # 获取当前 Docker 数据目录
 get_data_root() {
@@ -76,11 +70,17 @@ restart_docker() {
 
 # 迁移 Docker 数据目录
 migrate_data_root() {
+    # 获取操作锁，防止并发迁移
+    if ! acquire_lock "docker_migrate"; then
+        log_error "数据迁移正在进行中，请稍后再试"
+        return 1
+    fi
+    log_audit "docker_migrate_start" "target_path=$1"
     local new_path="$1"
     check_docker || return 1
 
     if [ -z "$new_path" ]; then
-        echo "ERROR: 请指定目标路径"
+        log_error "请指定目标路径"
         return 1
     fi
 
@@ -97,14 +97,14 @@ migrate_data_root() {
 
     # 检查目标路径是否存在
     if [ ! -d "$new_path" ]; then
-        echo "ERROR: 目标路径不存在: $new_path"
+        log_error "目标路径不存在: $new_path"
         echo "请先挂载 U 盘并创建目录"
         return 1
     fi
 
     # 检查目标路径是否可写
     if ! touch "$new_path/.test_write" 2>/dev/null; then
-        echo "ERROR: 目标路径不可写: $new_path"
+        log_error "目标路径不可写: $new_path"
         return 1
     fi
     rm -f "$new_path/.test_write"
@@ -139,7 +139,7 @@ migrate_data_root() {
         if cp -a "$old_path"/. "$new_path/" 2>/dev/null; then
             echo "数据复制完成"
         else
-            echo "ERROR: 数据复制失败"
+            log_error "数据复制失败"
             echo "正在回滚..."
             rollback_config "$backup_dir"
             return 1
@@ -181,7 +181,7 @@ EOF
     if restart_docker; then
         echo ""
         echo "========================================"
-        echo "SUCCESS: 迁移完成！"
+        log_info "迁移完成！"
         echo "新的数据目录: $new_path"
         echo "========================================"
 
@@ -195,13 +195,18 @@ EOF
             echo "警告: 验证失败，数据目录可能未正确切换"
         fi
 
+    # 释放锁
+    release_lock "docker_migrate"
+    log_audit "docker_migrate_success" "target_path=$new_path"
         # 清理备份
         rm -rf "$backup_dir"
         return 0
     else
         echo ""
-        echo "ERROR: Docker 重启失败"
+        log_error "Docker 重启失败"
         echo "正在回滚..."
+        release_lock "docker_migrate"
+        log_audit "docker_migrate_failed" "target_path=$new_path"
         rollback_config "$backup_dir"
         return 1
     fi
@@ -243,13 +248,13 @@ get_storage_status() {
 format_disk() {
     local device="$1"
     if [ -z "$device" ]; then
-        echo "ERROR: 请指定设备路径"
+        log_error "请指定设备路径"
         return 1
     fi
 
     # 检查设备是否存在
     if [ ! -b "$device" ]; then
-        echo "ERROR: 设备不存在: $device"
+        log_error "设备不存在: $device"
         return 1
     fi
 
@@ -263,7 +268,7 @@ format_disk() {
     if mountpoint -q "$device" 2>/dev/null; then
         echo "设备已挂载，正在卸载..."
         umount "$device" 2>/dev/null || {
-            echo "ERROR: 卸载设备失败"
+            log_error "卸载设备失败"
             return 1
         }
         echo "卸载完成"
@@ -271,7 +276,7 @@ format_disk() {
 
     # 检查是否安装了mkfs.ext4
     if ! command -v mkfs.ext4 >/dev/null 2>&1; then
-        echo "ERROR: 缺少 mkfs.ext4 工具，请先安装 e2fsprogs"
+        log_error "缺少 mkfs.ext4 工具，请先安装 e2fsprogs"
         return 1
     fi
 
@@ -283,12 +288,12 @@ format_disk() {
     if mkfs.ext4 -F "$device" >/dev/null 2>&1; then
         echo ""
         echo "========================================"
-        echo "SUCCESS: 格式化完成！"
+        log_info "格式化完成！"
         echo "========================================"
         return 0
     else
         echo ""
-        echo "ERROR: 格式化失败"
+        log_error "格式化失败"
         return 1
     fi
 }

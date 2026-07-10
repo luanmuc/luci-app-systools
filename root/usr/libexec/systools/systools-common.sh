@@ -259,3 +259,70 @@ is_valid_mac() {
     local mac="$1"
     echo "$mac" | grep -qE '^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$'
 }
+
+# ==================== 并发操作锁机制 ====================
+
+# 获取操作锁
+# 参数：lock_name 锁名称
+# 返回：0 成功获取，1 获取失败（已有进程在运行）
+acquire_lock() {
+    local lock_name="$1"
+    local lock_file="/var/run/systools_${lock_name}.pid"
+    
+    if [ -z "$lock_name" ]; then
+        return 1
+    fi
+    
+    # 检查锁文件是否存在
+    if [ -f "$lock_file" ]; then
+        local old_pid
+        old_pid=$(cat "$lock_file" 2>/dev/null)
+        # 检查旧进程是否还在运行
+        if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
+            # 进程还在运行，拒绝获取锁
+            return 1
+        else
+            # 进程已不存在，清理陈旧锁文件
+            rm -f "$lock_file"
+        fi
+    fi
+    
+    # 创建锁文件，写入当前PID
+    mkdir -p /var/run
+    echo $$ > "$lock_file"
+    return 0
+}
+
+# 释放操作锁
+# 参数：lock_name 锁名称
+release_lock() {
+    local lock_name="$1"
+    local lock_file="/var/run/systools_${lock_name}.pid"
+    
+    if [ -z "$lock_name" ]; then
+        return 1
+    fi
+    
+    rm -f "$lock_file"
+    return 0
+}
+
+# ==================== 操作审计日志 ====================
+
+# 写入审计日志
+# 参数：action 操作名称，details 操作详情
+log_audit() {
+    local action="$1"
+    local details="$2"
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    
+    # 同时输出到标准输出和 syslog
+    local msg="[AUDIT] ${timestamp} action=${action} details=\"${details}\""
+    echo "$msg"
+    
+    # 写入 syslog（如果 logger 命令存在）
+    if command_exists logger; then
+        logger -t systools -p user.info "$msg"
+    fi
+}

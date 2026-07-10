@@ -2,7 +2,10 @@
 # 设备管理脚本
 # 功能：设备列表、备注名管理、静态IP绑定
 
-BACKUP_DIR="/etc/systools/backup"
+# 加载公共函数库
+. /usr/libexec/systools/systools-common.sh
+
+BACKUP_DIR="/etc/systools/backup/device_manager"
 LOG_TAG="systools-device-manager"
 
 log() {
