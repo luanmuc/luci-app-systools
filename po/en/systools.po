@@ -1041,3 +1041,290 @@ msgstr "Protocol"
 
 msgid "System Tools"
 msgstr "System Tools"
+
+# 补充翻译条目
+
+msgid "6in4 Tunnel Configuration"
+msgstr "6in4 Tunnel Configuration"
+
+msgid "Advanced Settings"
+msgstr "Advanced Settings"
+
+msgid "Backup Config"
+msgstr "Backup Config"
+
+msgid "Backup Home Assistant configuration files"
+msgstr "Backup Home Assistant configuration files"
+
+msgid "Backups Size"
+msgstr "Backups Size"
+
+msgid "Clone MAC address for ISP binding scenarios"
+msgstr "Clone MAC address for ISP binding scenarios"
+
+msgid "Close"
+msgstr "Close"
+
+msgid "Config Directory"
+msgstr "Config Directory"
+
+msgid "Customize WAN MAC address. Leave blank to use default."
+msgstr "Customize WAN MAC address. Leave blank to use default."
+
+msgid "DHCP 服务器"
+msgstr "DHCP Server"
+
+msgid "Disable"
+msgstr "Disable"
+
+msgid "Docker is not installed. Please install Docker first to use Home Assistant features."
+msgstr "Docker is not installed. Please install Docker first to use Home Assistant features."
+
+msgid "Docker Not Installed"
+msgstr "Docker Not Installed"
+
+msgid "Docker 未安装"
+msgstr "Docker Not Installed"
+
+msgid "Home Assistant Status"
+msgstr "Home Assistant Status"
+
+msgid "IP 地址"
+msgstr "IP Address"
+
+msgid "IP 转发"
+msgstr "IP Forwarding"
+
+msgid "LAN 口 IP 地址"
+msgstr "LAN IP Address"
+
+msgid "Logs (last 100 lines)"
+msgstr "Logs (last 100 lines)"
+
+msgid "MAC 地址"
+msgstr "MAC Address"
+
+msgid "Manage Home Assistant container and configuration."
+msgstr "Manage Home Assistant container and configuration."
+
+msgid "Maximum Transmission Unit. Default is 1500, PPPoE recommended 1492."
+msgstr "Maximum Transmission Unit. Default is 1500, PPPoE recommended 1492."
+
+msgid "No logs available"
+msgstr "No logs available"
+
+msgid "Open HA Web UI"
+msgstr "Open HA Web UI"
+
+msgid "Open Home Assistant web interface in new tab"
+msgstr "Open Home Assistant web interface in new tab"
+
+msgid "Open Web UI"
+msgstr "Open Web UI"
+
+msgid "Please enter tunnel server address"
+msgstr "Please enter tunnel server address"
+
+msgid "Primary DNS"
+msgstr "Primary DNS"
+
+msgid "Primary DNS server address"
+msgstr "Primary DNS server address"
+
+msgid "Relay Mode"
+msgstr "Relay Mode"
+
+msgid "Restart HA"
+msgstr "Restart HA"
+
+msgid "Restart Home Assistant container"
+msgstr "Restart Home Assistant container"
+
+msgid "Secondary DNS"
+msgstr "Secondary DNS"
+
+msgid "Secondary DNS server address (optional)"
+msgstr "Secondary DNS server address (optional)"
+
+msgid "Start HA"
+msgstr "Start HA"
+
+msgid "Start Home Assistant container"
+msgstr "Start Home Assistant container"
+
+msgid "Start mDNS service for device discovery"
+msgstr "Start mDNS service for device discovery"
+
+msgid "Start UPnP service for automatic port forwarding"
+msgstr "Start UPnP service for automatic port forwarding"
+
+msgid "Stop HA"
+msgstr "Stop HA"
+
+msgid "Stop Home Assistant container"
+msgstr "Stop Home Assistant container"
+
+msgid "Stop mDNS service"
+msgstr "Stop mDNS service"
+
+msgid "Stop UPnP service"
+msgstr "Stop UPnP service"
+
+msgid "Storage Usage"
+msgstr "Storage Usage"
+
+msgid "WAN MAC Address"
+msgstr "WAN MAC Address"
+
+msgid "WAN MTU"
+msgstr "WAN MTU"
+
+msgid "WAN 口 IP 伪装"
+msgstr "WAN IP Masquerade"
+
+msgid "一键切换正常路由模式和旁路由模式。旁路由模式下，路由器作为旁路网关工作，可用于代理和特殊网络处理。"
+msgstr "One-click switch between normal routing and side route mode. In side route mode, the router works as a bypass gateway for proxy and special network processing."
+
+msgid "从备份恢复到正常路由模式。"
+msgstr "Restore to normal routing mode from backup."
+
+msgid "修改设备备注名"
+msgstr "Edit Device Nickname"
+
+msgid "切换到旁路由模式"
+msgstr "Switch to Side Route Mode"
+
+msgid "切换前自动备份配置，出现问题可随时恢复"
+msgstr "Auto backup config before switching, can restore anytime if issues occur"
+
+msgid "切换模式会导致网络中断几秒钟"
+msgstr "Switching modes will cause network interruption for a few seconds"
+
+msgid "台"
+msgstr "devices"
+
+msgid "否"
+msgstr "No"
+
+msgid "启用旁路由"
+msgstr "Enable Side Route"
+
+msgid "启用静态绑定"
+msgstr "Enable Static Binding"
+
+msgid "回滚配置"
+msgstr "Rollback Configuration"
+
+msgid "备注名称"
+msgstr "Nickname"
+
+msgid "已关闭"
+msgstr "Off"
+
+msgid "已启用"
+msgstr "Enabled"
+
+msgid "已开启"
+msgstr "On"
+
+msgid "已用"
+msgstr "Used"
+
+msgid "已禁用"
+msgstr "Disabled"
+
+msgid "已连接设备"
+msgstr "Connected Devices"
+
+msgid "当前存储空间使用率已超过 90%，建议清理镜像或迁移到更大的存储设备。"
+msgstr "Current storage usage exceeds 90%. Recommend cleaning images or migrating to larger storage."
+
+msgid "当前模式"
+msgstr "Current Mode"
+
+msgid "当前状态"
+msgstr "Current Status"
+
+msgid "恢复正常模式"
+msgstr "Restore Normal Mode"
+
+msgid "或者在主路由的 DHCP 设置中指定网关"
+msgstr "Or specify gateway in main router's DHCP settings"
+
+msgid "接口"
+msgstr "Interface"
+
+msgid "提示：存储空间使用率已超过 80%，请注意及时清理。"
+msgstr "Notice: Storage usage exceeds 80%, please clean up in time."
+
+msgid "旁路由模式"
+msgstr "Side Route Mode"
+
+msgid "旁路由模式下，DHCP 服务器将被关闭"
+msgstr "DHCP server will be disabled in side route mode"
+
+msgid "是"
+msgstr "Yes"
+
+msgid "未知设备"
+msgstr "Unknown Device"
+
+msgid "正常路由模式"
+msgstr "Normal Routing Mode"
+
+msgid "管理内网连接的设备，查看设备列表、修改备注名、绑定静态IP等。"
+msgstr "Manage LAN connected devices: view device list, edit nicknames, static IP binding, etc."
+
+msgid "绑定 IP 地址"
+msgstr "Bind IP Address"
+
+msgid "编辑"
+msgstr "Edit"
+
+msgid "自动检测网络环境并切换到旁路由模式，路由器将作为旁路网关工作。"
+msgstr "Auto detect network environment and switch to side route mode. Router will work as a bypass gateway."
+
+msgid "警告"
+msgstr "Warning"
+
+msgid "警告：存储空间不足"
+msgstr "Warning: Insufficient Storage"
+
+msgid "设备列表"
+msgstr "Device List"
+
+msgid "设备名称"
+msgstr "Device Name"
+
+msgid "设备总数"
+msgstr "Total Devices"
+
+msgid "设备管理"
+msgstr "Device Management"
+
+msgid "设备需要手动设置网关为本路由器 IP 才能使用旁路由"
+msgstr "Devices must manually set gateway to this router's IP to use side route"
+
+msgid "设置后该设备连接网络时将永远获取这个 IP 地址"
+msgstr "After setting, this device will always get this IP address when connecting"
+
+msgid "请先安装 Docker 相关包（dockerd、docker-cli 等）后再使用此功能。"
+msgstr "Please install Docker packages (dockerd, docker-cli, etc.) before using this feature."
+
+msgid "--- 选择常用镜像 ---"
+msgstr "--- Select Common Image ---"
+
+msgid "选择设备"
+msgstr "Select Device"
+
+msgid "重要提示"
+msgstr "Important Notice"
+
+msgid "静态 IP 绑定"
+msgstr "Static IP Binding"
+
+msgid "静态绑定"
+msgstr "Static Binding"
+
+msgid "默认网关"
+msgstr "Default Gateway"
