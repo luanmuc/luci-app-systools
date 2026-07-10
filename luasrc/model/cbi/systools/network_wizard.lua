@@ -159,7 +159,7 @@ function btn_apply.write(self, section)
         end
     elseif conn_type == "dhcp" then
         luci.sys.call("/usr/libexec/systools/network_wizard.sh dhcp" .. advanced_args .. " >/dev/null 2>&1 &")
-        luci.http.redirect(luci.dispatcher.build_url("admin", "systools", "network", "wizard"))
+        luci.http.redirect(luci.dispatcher.build_url("admin", "systools", "wizard", "network_wizard"))
     elseif conn_type == "static" then
         local ip = m:formvalue("cbid.systools.wizard.static_ip")
         local gw = m:formvalue("cbid.systools.wizard.static_gateway")
@@ -190,7 +190,7 @@ btn_restore.inputstyle = "reset"
 btn_restore.description = translate("Restore from the most recent backup.")
 function btn_restore.write(self, section)
     luci.sys.call("/usr/libexec/systools/network_wizard.sh restore >/dev/null 2>&1 &")
-    luci.http.redirect(luci.dispatcher.build_url("admin", "systools", "network", "wizard"))
+    luci.http.redirect(luci.dispatcher.build_url("admin", "systools", "wizard", "network_wizard"))
 end
 
 -- 提示信息

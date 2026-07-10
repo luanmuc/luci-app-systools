@@ -72,6 +72,7 @@ if ha_status.status == "not_found" then
     -- 容器名称
     o = s_wizard:option(Value, "container_name", translate("容器名称"))
     o.default = "homeassistant"
+    o.datatype = "hostname"
     o.rmempty = false
 
     -- 端口映射（bridge模式下）
@@ -83,6 +84,7 @@ if ha_status.status == "not_found" then
     -- 数据卷路径
     o = s_wizard:option(Value, "config_path", translate("配置目录路径"))
     o.default = "/etc/homeassistant"
+    o.datatype = "string"
     o.description = translate("Home Assistant 配置文件存储路径，建议使用 U 盘等持久化存储")
 
     -- 网络模式

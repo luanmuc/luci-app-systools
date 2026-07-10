@@ -1,4 +1,5 @@
 -- Copyright 2024 System Tools Project
+local systools_common = require "luci.model.cbi.systools.common"
 -- Licensed under the MIT License
 
 local m, s, o
@@ -31,7 +32,7 @@ btn_export.inputstyle = "apply"
 btn_export.write = function(self, section)
     -- 生成导出文件并触发下载
     local export_file = "/tmp/systools_config_backup.txt"
-    sys.exec("uci export systools > " .. export_file .. " 2>/dev/null")
+    sys.exec("uci export systools > " .. systools_common.shell_escape(export_file) .. " 2>/dev/null")
     http.redirect(luci.dispatcher.build_url("admin", "systools", "config"))
 end
 
@@ -55,28 +56,46 @@ btn_import.write = function(self, section)
         return
     end
     
+    -- ===== 白名单校验 =====
+    -- 1. 必须包含 package systools 声明
+    if not import_content:match("package%s+systools") then
+        return -- 格式错误，拒绝导入
+    end
+    
+    -- 2. 禁止包含其他 package 的配置（安全白名单）
+    local other_packages = {}
+    for pkg in import_content:gmatch("package%s+([a-z0-9_]+)") do
+        if pkg ~= "systools" then
+            table.insert(other_packages, pkg)
+        end
+    end
+    if #other_packages > 0 then
+        return -- 包含其他包，拒绝导入
+    end
+    
+    -- 3. 基本格式校验：检查是否有明显异常字符
+    if import_content:match("[<>;|`$]") and not import_content:match("option%s+") then
+        return -- 可疑内容，拒绝导入
+    end
+    
     -- 先备份当前配置
     local backup_dir = "/etc/systools/backup/config"
-    sys.exec("mkdir -p " .. backup_dir)
+    sys.exec("mkdir -p " .. systools_common.shell_escape(backup_dir))
     local backup_file = backup_dir .. "/systools_backup_" .. os.date("%Y%m%d_%H%M%S") .. ".uci"
-    sys.exec("uci export systools > " .. backup_file .. " 2>/dev/null")
+    sys.exec("uci export systools > " .. systools_common.shell_escape(backup_file) .. " 2>/dev/null")
     
     -- 写入临时文件并导入
     local tmp_file = "/tmp/systools_import.tmp"
     fs.writefile(tmp_file, import_content)
     
     -- 执行导入
-    local result = sys.exec("uci import systools < " .. tmp_file .. " && uci commit systools 2>&1")
+    local result = sys.exec("uci import systools < " .. systools_common.shell_escape(tmp_file) .. " && uci commit systools 2>&1")
     
     -- 清理临时文件
-    sys.exec("rm -f " .. tmp_file)
+    sys.exec("rm -f " .. systools_common.shell_escape(tmp_file))
     
     http.redirect(luci.dispatcher.build_url("admin", "systools", "config"))
 end
-
--- 备份管理
-s3 = m:section(SimpleSection, translate("配置备份历史"), translate("自动保留最近的配置备份"))
-s3.anonymous = true
 
 -- 列出备份文件
 local backup_list = sys.exec("ls -lt /etc/systools/backup/config/ 2>/dev/null | head -10")
