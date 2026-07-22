@@ -108,7 +108,7 @@ define Package/luci-app-systools/install
 
 	# 公共函数库
 	$(INSTALL_DIR) $(1)/usr/libexec/systools
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/root/usr/libexec/systools/systools-common.sh $(1)/usr/libexec/systools/systools-common.sh
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/root/usr/libexec/systools/systools-common.sh $(1)/usr/libexec/systools/systools-common.sh
 
 	# UCI 配置文件
 	$(INSTALL_DIR) $(1)/etc/config
@@ -145,10 +145,8 @@ if [ -x /etc/uci-defaults/99-luci-systools ]; then
 	rm -f /etc/uci-defaults/99-luci-systools
 fi
 
-# 重启 LuCI
-if [ -x /etc/init.d/uhttpd ]; then
-	/etc/init.d/uhttpd restart 2>/dev/null || true
-fi
+# 清理 LuCI 缓存，使菜单立即生效
+rm -f /tmp/luci-indexcache 2>/dev/null || true
 
 exit 0
 endef
@@ -157,15 +155,21 @@ define Package/luci-app-systools/prerm
 #!/bin/sh
 # 卸载前脚本 - 清理运行时文件，保留用户配置和数据
 
-# 清理锁文件
-rm -f /var/run/systools_*.pid 2>/dev/null || true
+# 终止所有正在运行的 systools 后台脚本，避免产生孤儿进程
+pkill -f "/usr/libexec/systools/" 2>/dev/null || true
+sleep 1
+pkill -9 -f "/usr/libexec/systools/" 2>/dev/null || true
 
-# 清理临时日志文件
+# 清理锁目录（原子锁目录）
+rm -rf /var/run/systools_*.lock 2>/dev/null || true
+
+# 清理临时文件
 rm -f /tmp/systools_*.log 2>/dev/null || true
 rm -f /tmp/systools_*.tmp 2>/dev/null || true
+rm -rf /tmp/systools_* 2>/dev/null || true
 
 # 注意：不删除 /etc/config/systools（保留用户配置）
-# 注意：不删除 /etc/systools/backup/（保留用户备份数据）
+# 注意：不删除 /etc/systools/（保留用户数据）
 
 exit 0
 endef
@@ -182,10 +186,13 @@ if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
     # 删除整个 systools 数据目录（包括备份、日志等所有用户数据）
     rm -rf /etc/systools 2>/dev/null || true
 
-    # 清理所有运行时文件（保险起见再清一遍）
-    rm -f /var/run/systools_*.pid 2>/dev/null || true
+    # 清理所有锁目录
+    rm -rf /var/run/systools_*.lock 2>/dev/null || true
+
+    # 全面清理所有临时文件
     rm -f /tmp/systools_*.log 2>/dev/null || true
     rm -f /tmp/systools_*.tmp 2>/dev/null || true
+    rm -rf /tmp/systools_* 2>/dev/null || true
 fi
 
 exit 0
