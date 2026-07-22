@@ -16,16 +16,24 @@ ip_to_int() {
     b=$(echo "$ip" | cut -d. -f2)
     c=$(echo "$ip" | cut -d. -f3)
     d=$(echo "$ip" | cut -d. -f4)
-    echo $(( (a << 24) + (b << 16) + (c << 8) + d ))
+    
+    # 防御性检查，确保都是数字
+    case "$a$b$c$d" in
+        *[!0-9]*) return 1 ;;
+    esac
+    
+    echo "$(( (a << 24) + (b << 16) + (c << 8) + d ))"
+    return 0
 }
 
 # 整数转IP地址
 int_to_ip() {
     local num="$1"
-    local a=$(( (num >> 24) & 0xFF ))
-    local b=$(( (num >> 16) & 0xFF ))
-    local c=$(( (num >> 8) & 0xFF ))
-    local d=$(( num & 0xFF ))
+    local a b c d
+    a=$(( (num >> 24) & 0xFF ))
+    b=$(( (num >> 16) & 0xFF ))
+    c=$(( (num >> 8) & 0xFF ))
+    d=$(( num & 0xFF ))
     echo "${a}.${b}.${c}.${d}"
 }
 
@@ -34,21 +42,38 @@ calc_network() {
     local ip="$1"
     local mask="$2"
     local ip_int mask_int net_int
-    ip_int=$(ip_to_int "$ip")
-    mask_int=$(ip_to_int "$mask")
+    ip_int=$(ip_to_int "$ip") || return 1
+    mask_int=$(ip_to_int "$mask") || return 1
     net_int=$(( ip_int & mask_int ))
     int_to_ip "$net_int"
 }
 
-# 计算广播地址
+# 计算广播地址（避免使用 ~ 按位取反，提高兼容性）
 calc_broadcast() {
     local ip="$1"
     local mask="$2"
-    local ip_int mask_int bc_int
-    ip_int=$(ip_to_int "$ip")
-    mask_int=$(ip_to_int "$mask")
-    bc_int=$(( ip_int | (~mask_int & 0xFFFFFFFF) ))
+    local ip_int mask_int inverted_mask bc_int
+    ip_int=$(ip_to_int "$ip") || return 1
+    mask_int=$(ip_to_int "$mask") || return 1
+    # 用 0xFFFFFFFF XOR mask 实现按位取反，避免 ~ 运算符兼容性问题
+    inverted_mask=$(( 0xFFFFFFFF ^ mask_int ))
+    bc_int=$(( ip_int | inverted_mask ))
     int_to_ip "$bc_int"
+}
+
+# 清理过期备份文件，只保留最近N份
+cleanup_old_backups() {
+    local file_pattern="$1"
+    local keep_count="${2:-5}"
+    local count=0
+    
+    # 按修改时间倒序列出，跳过前N个，删除剩下的
+    ls -1t "$file_pattern" 2>/dev/null | while read -r f; do
+        count=$((count + 1))
+        if [ "$count" -gt "$keep_count" ]; then
+            rm -f "$f" 2>/dev/null
+        fi
+    done
 }
 
 # ========== 配置读取 ==========
@@ -60,15 +85,6 @@ get_lan_config() {
     netmask=$(uci -q get network.lan.netmask)
     echo "ipaddr=${ipaddr:-N/A}"
     echo "netmask=${netmask:-N/A}"
-}
-
-# 获取DHCP配置
-get_dhcp_config() {
-    local dhcp_start dhcp_limit
-    dhcp_start=$(uci -q get dhcp.lan.start)
-    dhcp_limit=$(uci -q get dhcp.lan.limit)
-    echo "dhcp_start=${dhcp_start:-}"
-    echo "dhcp_limit=${dhcp_limit:-}"
 }
 
 # ========== 校验函数 ==========
@@ -104,7 +120,11 @@ validate_lan_ip() {
     # 不能是组播地址（224.0.0.0 - 239.255.255.255）
     local first_octet
     first_octet=$(echo "$ip" | cut -d. -f1)
-    if [ "$first_octet" -ge 224 ] && [ "$first_octet" -le 239 ]; then
+    # 防御性检查：确保是数字
+    case "$first_octet" in
+        *[!0-9]*) return 1 ;;
+    esac
+    if [ "$first_octet" -ge 224 ] 2>/dev/null && [ "$first_octet" -le 239 ] 2>/dev/null; then
         log_error "不能使用组播地址作为LAN IP"
         return 1
     fi
@@ -121,9 +141,11 @@ validate_netmask() {
         return 1
     fi
     
-    # 所有合法的连续子网掩码
+    # 所有合法的连续子网掩码（共31个，/1 到 /31）
     case "$mask" in
-        255.0.0.0|255.128.0.0|255.192.0.0|255.224.0.0|255.240.0.0|\
+        128.0.0.0|\
+        192.0.0.0|224.0.0.0|240.0.0.0|248.0.0.0|252.0.0.0|254.0.0.0|255.0.0.0|\
+        255.128.0.0|255.192.0.0|255.224.0.0|255.240.0.0|\
         255.248.0.0|255.252.0.0|255.254.0.0|255.255.0.0|\
         255.255.128.0|255.255.192.0|255.255.224.0|255.255.240.0|\
         255.255.248.0|255.255.252.0|255.255.254.0|255.255.255.0|\
@@ -140,13 +162,14 @@ validate_netmask() {
 }
 
 # 检查IP是否是给定子网的网络地址或广播地址
+# 返回0=是特殊地址（无效），返回1=不是特殊地址（有效）
 is_network_or_broadcast() {
     local ip="$1"
     local mask="$2"
     local network broadcast
     
-    network=$(calc_network "$ip" "$mask")
-    broadcast=$(calc_broadcast "$ip" "$mask")
+    network=$(calc_network "$ip" "$mask") || return 0
+    broadcast=$(calc_broadcast "$ip" "$mask") || return 0
     
     if [ "$ip" = "$network" ]; then
         log_error "IP地址 $ip 是网络地址，不能作为LAN IP"
@@ -161,64 +184,17 @@ is_network_or_broadcast() {
     return 1
 }
 
-# ========== DHCP 同步 ==========
-
-# 检查并调整DHCP地址池，使其与新LAN IP在同一网段
-adjust_dhcp_pool() {
-    local new_ip="$1"
-    local new_mask="$2"
-    local new_network dhcp_start dhcp_limit dhcp_start_ip old_network
-    
-    new_network=$(calc_network "$new_ip" "$new_mask")
-    dhcp_start=$(uci -q get dhcp.lan.start)
-    dhcp_limit=$(uci -q get dhcp.lan.limit)
-    
-    # 如果没有DHCP配置，跳过
-    if [ -z "$dhcp_start" ] || [ -z "$dhcp_limit" ]; then
-        log_info "未检测到DHCP配置，跳过DHCP调整"
-        return 0
-    fi
-    
-    # 获取当前DHCP起始IP（基于旧网段）
-    local old_ip old_mask
-    old_ip=$(uci -q get network.lan.ipaddr)
-    old_mask=$(uci -q get network.lan.netmask)
-    old_network=$(calc_network "$old_ip" "$old_mask")
-    
-    # 如果新旧网段相同，不需要调整
-    if [ "$new_network" = "$old_network" ]; then
-        return 0
-    fi
-    
-    # 计算新网段的DHCP起始IP（保持相同的主机偏移，默认从100开始）
-    # 策略：新网段网络地址 + 100 作为起始
-    local net_int start_int new_start_ip
-    net_int=$(ip_to_int "$new_network")
-    start_int=$(( net_int + 100 ))
-    new_start_ip=$(int_to_ip "$start_int")
-    
-    # 只取最后一段作为start值（OpenWrt的dhcp.start是相对网络地址的偏移）
-    local new_start_offset
-    new_start_offset=$(echo "$new_start_ip" | cut -d. -f4)
-    
-    log_info "DHCP网段变化，自动调整地址池: 起始偏移改为 $new_start_offset"
-    uci set dhcp.lan.start="$new_start_offset"
-    uci commit dhcp
-    
-    return 0
-}
-
 # ========== 主功能函数 ==========
 
 # 应用新的LAN IP配置
 apply_lan_ip() {
     local new_ip="$1"
     local new_mask="${2:-255.255.255.0}"
-    local current_ip current_mask backup_file
+    local current_ip current_mask
     
     log_info "开始修改LAN IP: $new_ip / $new_mask"
     
-    # 获取当前配置
+    # 获取当前配置（在任何修改之前读取，确保是原始值）
     current_ip=$(uci -q get network.lan.ipaddr)
     current_mask=$(uci -q get network.lan.netmask)
     
@@ -259,7 +235,9 @@ apply_lan_ip() {
     # 备份当前network配置（带时间戳，不覆盖）
     local backup_suffix=".bak.lanip.$(date +%Y%m%d_%H%M%S)"
     backup_file /etc/config/network "$backup_suffix"
-    backup_file /etc/config/dhcp "$backup_suffix"
+    
+    # 清理旧备份，只保留最近5份
+    cleanup_old_backups "/etc/config/network.bak.lanip.*" 5
     
     # 修改 UCI 配置
     if ! uci set network.lan.ipaddr="$new_ip"; then
@@ -275,29 +253,22 @@ apply_lan_ip() {
         return 1
     fi
     
-    # 调整DHCP地址池（如果需要）
-    adjust_dhcp_pool "$new_ip" "$new_mask"
-    
     # 提交配置
     if ! uci commit network; then
         log_error "提交network配置失败，回滚"
         uci revert network
-        uci revert dhcp
         echo "COMMIT_ERROR"
         return 1
-    fi
-    
-    if ! uci commit dhcp; then
-        log_error "提交dhcp配置失败"
-        uci revert dhcp
-        # network已经提交了，这里只能记录错误
     fi
     
     log_info "LAN IP配置已更新，正在重启网络..."
     
     # 后台重启网络（延迟执行，让当前请求先返回）
-    # 子进程独立释放锁
+    # 子进程独立持有锁
     (
+        # 更新锁的PID为当前子进程PID，防止父进程退出后被误判为过期锁
+        echo $$ > "/var/run/systools_lan_ip.lock/pid" 2>/dev/null
+        
         trap 'release_lock "lan_ip"' EXIT
         sleep 2
         
