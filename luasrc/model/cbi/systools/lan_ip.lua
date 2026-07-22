@@ -86,7 +86,7 @@ o.value = "• " .. translate("Make sure your computer is set to the same subnet
 o.rawhtml = true
 
 o = s4:option(DummyValue, "_tip4")
-o.value = "• " .. translate("After modifying, please check if the DHCP address pool is in the same network segment")
+o.value = "• " .. translate("DHCP address pool start offset will be automatically adjusted to match the new network segment")
 o.rawhtml = true
 
 -- 故障恢复提示

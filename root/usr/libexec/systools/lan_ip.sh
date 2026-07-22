@@ -61,6 +61,26 @@ calc_broadcast() {
     int_to_ip "$bc_int"
 }
 
+# 计算子网可用主机数
+calc_usable_hosts() {
+    local mask="$1"
+    local mask_int host_bits
+    mask_int=$(ip_to_int "$mask") || return 1
+    # 计算主机位数量
+    host_bits=0
+    local temp=$(( 0xFFFFFFFF ^ mask_int ))
+    while [ "$temp" -gt 0 ]; do
+        host_bits=$(( host_bits + 1 ))
+        temp=$(( temp >> 1 ))
+    done
+    # 可用主机数 = 2^host_bits - 2（减网络地址和广播地址）
+    if [ "$host_bits" -le 1 ]; then
+        echo 0
+    else
+        echo "$(( (1 << host_bits) - 2 ))"
+    fi
+}
+
 # 清理过期备份文件，只保留最近N份
 cleanup_old_backups() {
     local file_pattern="$1"
@@ -184,19 +204,94 @@ is_network_or_broadcast() {
     return 1
 }
 
+# ========== DHCP 同步 ==========
+
+# 检查并调整DHCP地址池，使其与新LAN IP在同一网段
+# 注意：此函数只做 uci set，不 commit，由调用方统一 commit
+# 返回：0=无需调整或调整成功，1=出错
+adjust_dhcp_pool() {
+    local new_ip="$1"
+    local new_mask="$2"
+    local old_ip="$3"
+    local old_mask="$4"
+    local new_network old_network dhcp_ignore
+    
+    # 检查dhcp.lan节是否存在
+    if ! uci -q get dhcp.lan >/dev/null 2>&1; then
+        log_info "未找到dhcp.lan配置，跳过DHCP调整"
+        return 0
+    fi
+    
+    # 检查DHCP是否被禁用
+    dhcp_ignore=$(uci -q get dhcp.lan.ignore)
+    if [ "$dhcp_ignore" = "1" ]; then
+        log_info "DHCP已禁用，跳过DHCP调整"
+        return 0
+    fi
+    
+    # 检查是否有start配置
+    local old_start
+    old_start=$(uci -q get dhcp.lan.start)
+    if [ -z "$old_start" ]; then
+        log_info "DHCP未配置start，跳过调整"
+        return 0
+    fi
+    
+    # 计算新旧网段
+    new_network=$(calc_network "$new_ip" "$new_mask") || return 0
+    old_network=$(calc_network "$old_ip" "$old_mask") || return 0
+    
+    # 如果新旧网段相同，不需要调整
+    if [ "$new_network" = "$old_network" ]; then
+        return 0
+    fi
+    
+    # 计算新网段的可用主机数
+    local usable_hosts
+    usable_hosts=$(calc_usable_hosts "$new_mask")
+    
+    # 计算新的起始偏移
+    # 策略：优先保持原偏移量；如果子网太小，默认从第2个可用地址开始
+    local new_start
+    if [ "$usable_hosts" -ge 100 ]; then
+        # 子网够大，用100作为起始偏移（常用默认值）
+        new_start=100
+    elif [ "$usable_hosts" -ge 10 ]; then
+        # 中等子网，从一半位置开始
+        new_start=$(( usable_hosts / 2 ))
+    elif [ "$usable_hosts" -ge 2 ]; then
+        # 小子网，从第2个可用地址开始（网络地址+2）
+        new_start=2
+    else
+        # 子网太小，没有可用地址，跳过
+        log_info "子网可用主机数不足，跳过DHCP调整"
+        return 0
+    fi
+    
+    log_info "DHCP网段变化，自动调整地址池起始偏移: $old_start -> $new_start"
+    if ! uci set dhcp.lan.start="$new_start"; then
+        log_error "设置DHCP起始偏移失败"
+        return 1
+    fi
+    
+    return 0
+}
+
 # ========== 主功能函数 ==========
 
 # 应用新的LAN IP配置
 apply_lan_ip() {
     local new_ip="$1"
     local new_mask="${2:-255.255.255.0}"
-    local current_ip current_mask
+    local current_ip current_mask old_ip old_mask
     
     log_info "开始修改LAN IP: $new_ip / $new_mask"
     
-    # 获取当前配置（在任何修改之前读取，确保是原始值）
+    # ===== 第一步：读取所有原始配置（在任何修改之前） =====
     current_ip=$(uci -q get network.lan.ipaddr)
     current_mask=$(uci -q get network.lan.netmask)
+    old_ip="$current_ip"
+    old_mask="$current_mask"
     
     # 检查是否与当前配置完全相同
     if [ "$new_ip" = "$current_ip" ] && [ "$new_mask" = "$current_mask" ]; then
@@ -215,7 +310,7 @@ apply_lan_ip() {
     # 设置trap确保锁被释放（异常退出时）
     trap 'release_lock "lan_ip"' EXIT
     
-    # 校验参数
+    # ===== 第二步：所有参数校验 =====
     if ! validate_lan_ip "$new_ip"; then
         echo "INVALID_IP"
         return 1
@@ -232,14 +327,18 @@ apply_lan_ip() {
         return 1
     fi
     
-    # 备份当前network配置（带时间戳，不覆盖）
+    # ===== 第三步：备份配置 =====
     local backup_suffix=".bak.lanip.$(date +%Y%m%d_%H%M%S)"
     backup_file /etc/config/network "$backup_suffix"
+    backup_file /etc/config/dhcp "$backup_suffix"
     
     # 清理旧备份，只保留最近5份
     cleanup_old_backups "/etc/config/network.bak.lanip.*" 5
+    cleanup_old_backups "/etc/config/dhcp.bak.lanip.*" 5
     
-    # 修改 UCI 配置
+    # ===== 第四步：修改 UCI 配置（都只set，不commit） =====
+    
+    # 4.1 修改 network 配置
     if ! uci set network.lan.ipaddr="$new_ip"; then
         log_error "设置LAN IP失败"
         echo "UCI_ERROR"
@@ -247,23 +346,44 @@ apply_lan_ip() {
     fi
     
     if ! uci set network.lan.netmask="$new_mask"; then
-        log_error "设置子网掩码失败，回滚配置"
+        log_error "设置子网掩码失败，回滚network配置"
         uci revert network
         echo "UCI_ERROR"
         return 1
     fi
     
-    # 提交配置
-    if ! uci commit network; then
-        log_error "提交network配置失败，回滚"
+    # 4.2 调整 DHCP（只做 uci set，不 commit）
+    if ! adjust_dhcp_pool "$new_ip" "$new_mask" "$old_ip" "$old_mask"; then
+        log_error "调整DHCP失败，回滚所有配置"
         uci revert network
+        uci revert dhcp
+        echo "DHCP_ERROR"
+        return 1
+    fi
+    
+    # ===== 第五步：统一提交配置 =====
+    
+    # 5.1 提交 network
+    if ! uci commit network; then
+        log_error "提交network配置失败，回滚所有配置"
+        uci revert network
+        uci revert dhcp
         echo "COMMIT_ERROR"
         return 1
     fi
     
+    # 5.2 提交 dhcp
+    if ! uci commit dhcp; then
+        log_error "提交dhcp配置失败，回滚dhcp配置"
+        uci revert dhcp
+        # network已经提交成功了，无法回滚，只能记录错误
+        # 但DHCP失败不影响网络连通性，用户可以手动修复
+        log_warn "DHCP配置提交失败，但LAN IP已生效，请手动检查DHCP设置"
+    fi
+    
     log_info "LAN IP配置已更新，正在重启网络..."
     
-    # 后台重启网络（延迟执行，让当前请求先返回）
+    # ===== 第六步：后台重启网络 =====
     # 子进程独立持有锁
     (
         # 更新锁的PID为当前子进程PID，防止父进程退出后被误判为过期锁
