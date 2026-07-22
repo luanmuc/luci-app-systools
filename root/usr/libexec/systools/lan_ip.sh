@@ -107,6 +107,58 @@ get_lan_config() {
     echo "netmask=${netmask:-N/A}"
 }
 
+# 获取WAN配置（用于冲突检测）
+get_wan_config() {
+    local ipaddr netmask proto
+    proto=$(uci -q get network.wan.proto)
+    # 只有静态地址才做冲突检测，DHCP/PPPoE等动态获取的无法预判
+    if [ "$proto" != "static" ]; then
+        echo "proto=$proto"
+        return 0
+    fi
+    ipaddr=$(uci -q get network.wan.ipaddr)
+    netmask=$(uci -q get network.wan.netmask)
+    echo "proto=static"
+    echo "ipaddr=${ipaddr:-}"
+    echo "netmask=${netmask:-}"
+}
+
+# 检查WAN和LAN是否在同一网段（冲突检测）
+# 返回0=不冲突，返回1=冲突
+check_wan_lan_conflict() {
+    local lan_ip="$1"
+    local lan_mask="$2"
+    local wan_ip wan_mask wan_proto lan_network wan_network
+    
+    # 读取WAN配置
+    local wan_config
+    wan_config=$(get_wan_config)
+    
+    wan_proto=$(echo "$wan_config" | grep "^proto=" | cut -d= -f2)
+    # 非静态WAN无法检测，默认认为不冲突
+    if [ "$wan_proto" != "static" ]; then
+        return 0
+    fi
+    
+    wan_ip=$(echo "$wan_config" | grep "^ipaddr=" | cut -d= -f2)
+    wan_mask=$(echo "$wan_config" | grep "^netmask=" | cut -d= -f2)
+    
+    if [ -z "$wan_ip" ] || [ -z "$wan_mask" ]; then
+        return 0
+    fi
+    
+    # 计算两个网段
+    lan_network=$(calc_network "$lan_ip" "$lan_mask") || return 0
+    wan_network=$(calc_network "$wan_ip" "$wan_mask") || return 0
+    
+    if [ "$lan_network" = "$wan_network" ]; then
+        log_error "LAN网段与WAN网段冲突: $lan_network"
+        return 1
+    fi
+    
+    return 0
+}
+
 # ========== 校验函数 ==========
 
 # 验证IP地址合法性（除了格式，还要检查特殊地址）
@@ -327,6 +379,12 @@ apply_lan_ip() {
         return 1
     fi
     
+    # 检查WAN/LAN网段冲突
+    if ! check_wan_lan_conflict "$new_ip" "$new_mask"; then
+        echo "WAN_LAN_CONFLICT"
+        return 1
+    fi
+    
     # ===== 第三步：备份配置 =====
     local backup_suffix=".bak.lanip.$(date +%Y%m%d_%H%M%S)"
     backup_file /etc/config/network "$backup_suffix"
@@ -395,6 +453,9 @@ apply_lan_ip() {
         # 直接restart，不用reload（reload可能部分生效导致异常）
         if /etc/init.d/network restart 2>/dev/null; then
             log_info "网络服务已重启，新LAN IP生效: $new_ip"
+            # 显式重载防火墙，确保规则同步更新
+            /etc/init.d/firewall reload 2>/dev/null
+            log_info "防火墙规则已重载"
         else
             log_error "网络服务重启失败，请手动检查"
         fi

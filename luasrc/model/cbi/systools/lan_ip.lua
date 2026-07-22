@@ -89,6 +89,10 @@ o = s4:option(DummyValue, "_tip4")
 o.value = "• " .. translate("DHCP address pool start offset will be automatically adjusted to match the new network segment")
 o.rawhtml = true
 
+o = s4:option(DummyValue, "_tip5")
+o.value = "• " .. translate("Automatically detects WAN/LAN subnet conflicts to prevent routing failures")
+o.rawhtml = true
+
 -- 故障恢复提示
 s5 = m:section(TypedSection, "global", translate("Troubleshooting"))
 s5.anonymous = true
