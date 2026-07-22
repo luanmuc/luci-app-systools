@@ -33,8 +33,6 @@ jobs:
           - openwrt_version: '25.12'
             package_format: 'apk'
             sdk_target: 'x86/64'
-    # 支持选择单个版本编译
-    if: ${{ github.event.inputs.version == 'all' || github.event.inputs.version == matrix.openwrt_version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
