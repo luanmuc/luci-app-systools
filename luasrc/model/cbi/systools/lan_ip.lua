@@ -34,7 +34,7 @@ o = s2:option(Value, "new_ipaddr", translate("New LAN IP Address"))
 o.datatype = "ip4addr"
 o.placeholder = "192.168.1.1"
 o.rmempty = false
-o.description = translate("Enter the new IP address for the LAN interface")
+o.description = translate("Enter the new IP address for the LAN interface. Cannot be network address or broadcast address.")
 
 o = s2:option(Value, "new_netmask", translate("Subnet Mask"))
 o.datatype = "ip4addr"
@@ -69,7 +69,7 @@ function btn_apply.write(self, section)
     end
 end
 
--- 提示信息
+-- 重要提示
 s4 = m:section(TypedSection, "global", translate("Important Notes"))
 s4.anonymous = true
 
@@ -82,11 +82,31 @@ o.value = "• " .. translate("You must access the router management page using 
 o.rawhtml = true
 
 o = s4:option(DummyValue, "_tip3")
-o.value = "• " .. translate("If you forget the new IP, you can find it through the device gateway or reset the router")
+o.value = "• " .. translate("Make sure your computer is set to the same subnet, otherwise you won't be able to access")
 o.rawhtml = true
 
 o = s4:option(DummyValue, "_tip4")
-o.value = "• " .. translate("Make sure the new IP is in the same subnet as your computer, otherwise you won't be able to access it")
+o.value = "• " .. translate("DHCP address pool will be automatically adjusted to match the new network segment")
+o.rawhtml = true
+
+-- 故障恢复提示
+s5 = m:section(TypedSection, "global", translate("Troubleshooting"))
+s5.anonymous = true
+
+o = s5:option(DummyValue, "_recovery1")
+o.value = "• " .. translate("If you cannot access after modification, check your computer's IP settings")
+o.rawhtml = true
+
+o = s5:option(DummyValue, "_recovery2")
+o.value = "• " .. translate("If you forget the new IP, you can check the gateway address on your computer")
+o.rawhtml = true
+
+o = s5:option(DummyValue, "_recovery3")
+o.value = "• " .. translate("In case of configuration error, press the reset button on the router to restore factory settings")
+o.rawhtml = true
+
+o = s5:option(DummyValue, "_recovery4")
+o.value = "• " .. translate("Each modification automatically backs up the configuration, which can be found in /etc/config/")
 o.rawhtml = true
 
 return m
