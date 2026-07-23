@@ -145,8 +145,17 @@ detect_network() {
 
 # 切换到旁路由模式
 enable_side_route() {
+    # 获取并发锁
+    if ! acquire_lock "network_config"; then
+        log_error "Another network configuration operation is in progress"
+        return 1
+    fi
+
     # 先备份
-    backup_config || return 1
+    if ! backup_config; then
+        release_lock "network_config"
+        return 1
+    fi
 
     # 检测当前网络（安全解析，避免eval注入）
     local lan_ip gateway dns
@@ -158,6 +167,7 @@ enable_side_route() {
 
     if [ -z "$lan_ip" ] || [ -z "$gateway" ]; then
         log_error "Cannot detect network configuration"
+        release_lock "network_config"
         return 1
     fi
 
@@ -199,6 +209,7 @@ enable_side_route() {
     /etc/init.d/firewall restart 2>/dev/null &
     /etc/init.d/dnsmasq restart 2>/dev/null &
 
+    release_lock "network_config"
     echo "Side route mode enabled"
     echo "LAN IP: $lan_ip"
     echo "Gateway: $gateway"
@@ -213,6 +224,12 @@ disable_side_route() {
         return 1
     fi
 
+    # 获取并发锁
+    if ! acquire_lock "network_config"; then
+        log_error "Another network configuration operation is in progress"
+        return 1
+    fi
+
     restore_config "$LATEST_BACKUP"
 
     # 重启服务
@@ -220,6 +237,7 @@ disable_side_route() {
     /etc/init.d/firewall restart 2>/dev/null &
     /etc/init.d/dnsmasq restart 2>/dev/null &
 
+    release_lock "network_config"
     echo "Normal router mode restored"
     return 0
 }

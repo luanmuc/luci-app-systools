@@ -105,8 +105,17 @@ get_status() {
 
 # 配置 Native IPv6（DHCPv6 + PD）
 apply_native() {
+    # 获取并发锁
+    if ! acquire_lock "network_config"; then
+        log_error "Another network configuration operation is in progress"
+        return 1
+    fi
+
     # 先备份
-    backup_config || return 1
+    if ! backup_config; then
+        release_lock "network_config"
+        return 1
+    fi
 
     # 创建或修改 wan6 接口
     uci set network.wan6='interface'
@@ -131,14 +140,24 @@ apply_native() {
     # 重启网络
     /etc/init.d/network restart 2>/dev/null &
 
+    release_lock "network_config"
     echo "Native IPv6 (DHCPv6 + PD) enabled"
     return 0
 }
 
 # 配置 6to4 隧道
 apply_6to4() {
+    # 获取并发锁
+    if ! acquire_lock "network_config"; then
+        log_error "Another network configuration operation is in progress"
+        return 1
+    fi
+
     # 先备份
-    backup_config || return 1
+    if ! backup_config; then
+        release_lock "network_config"
+        return 1
+    fi
 
     # 创建 6to4 接口
     uci set network.wan6='interface'
@@ -158,6 +177,7 @@ apply_6to4() {
     # 重启网络
     /etc/init.d/network restart 2>/dev/null &
 
+    release_lock "network_config"
     echo "6to4 tunnel enabled"
     return 0
 }
@@ -181,8 +201,17 @@ apply_6in4() {
         return 1
     fi
 
+    # 获取并发锁
+    if ! acquire_lock "network_config"; then
+        log_error "Another network configuration operation is in progress"
+        return 1
+    fi
+
     # 先备份
-    backup_config || return 1
+    if ! backup_config; then
+        release_lock "network_config"
+        return 1
+    fi
 
     # 创建 6in4 接口
     uci set network.wan6='interface'
@@ -218,14 +247,24 @@ apply_6in4() {
     # 重启网络
     /etc/init.d/network restart 2>/dev/null &
 
+    release_lock "network_config"
     echo "6in4 tunnel enabled"
     return 0
 }
 
 # 配置中继模式
 apply_relay() {
+    # 获取并发锁
+    if ! acquire_lock "network_config"; then
+        log_error "Another network configuration operation is in progress"
+        return 1
+    fi
+
     # 先备份
-    backup_config || return 1
+    if ! backup_config; then
+        release_lock "network_config"
+        return 1
+    fi
 
     # 创建 wan6 接口
     uci set network.wan6='interface'
@@ -252,14 +291,24 @@ apply_relay() {
     # 重启网络
     /etc/init.d/network restart 2>/dev/null &
 
+    release_lock "network_config"
     echo "IPv6 relay mode enabled"
     return 0
 }
 
 # 禁用 IPv6
 apply_disabled() {
+    # 获取并发锁
+    if ! acquire_lock "network_config"; then
+        log_error "Another network configuration operation is in progress"
+        return 1
+    fi
+
     # 先备份
-    backup_config || return 1
+    if ! backup_config; then
+        release_lock "network_config"
+        return 1
+    fi
 
     # 删除 wan6 接口
     uci delete network.wan6 2>/dev/null
@@ -283,6 +332,7 @@ apply_disabled() {
     /etc/init.d/network restart 2>/dev/null &
     /etc/init.d/firewall restart 2>/dev/null &
 
+    release_lock "network_config"
     echo "IPv6 disabled"
     return 0
 }

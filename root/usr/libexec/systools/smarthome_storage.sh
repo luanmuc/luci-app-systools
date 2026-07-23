@@ -173,27 +173,10 @@ migrate_data_root() {
     # 修改 daemon.json 配置
     echo "修改 Docker 配置..."
     local daemon_json="/etc/docker/daemon.json"
-    if [ ! -d "/etc/docker" ]; then
-        mkdir -p /etc/docker
-    fi
 
-    if [ -f "$daemon_json" ]; then
-        # 检查是否已有 data-root 配置
-        if grep -q '"data-root"' "$daemon_json" 2>/dev/null; then
-            # 更新现有配置
-            sed -i "s|\"data-root\": \"[^\"]*\"|\"data-root\": \"$new_path\"|" "$daemon_json"
-        else
-            # 添加 data-root 配置
-            sed -i "s|{|{\n  \"data-root\": \"$new_path\",|" "$daemon_json"
-        fi
-    else
-        # 创建新配置
-        cat > "$daemon_json" <<EOF
-{
-  "data-root": "$new_path"
-}
-EOF
-    fi
+    # 使用公共函数修改 data-root 字段（自动备份、优先 jq、sed 兜底）
+    set_json_field "$daemon_json" "data-root" "$new_path"
+
     echo "配置已更新"
     echo ""
 

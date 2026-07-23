@@ -166,11 +166,20 @@ apply_pppoe() {
         return 1
     fi
 
+    # 获取并发锁
+    if ! acquire_lock "network_config"; then
+        log_error "Another network configuration operation is in progress"
+        return 1
+    fi
+
     # 解析高级参数
     parse_advanced_args "$@"
 
     # 先备份
-    backup_network || return 1
+    if ! backup_network; then
+        release_lock "network_config"
+        return 1
+    fi
 
     # 配置 WAN 为 PPPoE
     uci set network.wan.proto='pppoe'
@@ -183,23 +192,37 @@ apply_pppoe() {
     fi
 
     # 应用高级设置
-    apply_advanced_settings
+    if ! apply_advanced_settings; then
+        release_lock "network_config"
+        return 1
+    fi
 
     uci commit network
 
     # 重启网络
     /etc/init.d/network restart 2>/dev/null &
+
+    release_lock "network_config"
     echo "PPPoE configuration applied"
     return 0
 }
 
 # 应用 DHCP 配置
 apply_dhcp() {
+    # 获取并发锁
+    if ! acquire_lock "network_config"; then
+        log_error "Another network configuration operation is in progress"
+        return 1
+    fi
+
     # 解析高级参数
     parse_advanced_args "$@"
 
     # 先备份
-    backup_network || return 1
+    if ! backup_network; then
+        release_lock "network_config"
+        return 1
+    fi
 
     # 配置 WAN 为 DHCP
     uci set network.wan.proto='dhcp'
@@ -210,12 +233,17 @@ apply_dhcp() {
     fi
 
     # 应用高级设置
-    apply_advanced_settings
+    if ! apply_advanced_settings; then
+        release_lock "network_config"
+        return 1
+    fi
 
     uci commit network
 
     # 重启网络
     /etc/init.d/network restart 2>/dev/null &
+
+    release_lock "network_config"
     echo "DHCP configuration applied"
     return 0
 }
@@ -256,11 +284,20 @@ apply_static() {
         netmask="255.255.255.0"
     fi
 
+    # 获取并发锁
+    if ! acquire_lock "network_config"; then
+        log_error "Another network configuration operation is in progress"
+        return 1
+    fi
+
     # 解析高级参数
     parse_advanced_args "$@"
 
     # 先备份
-    backup_network || return 1
+    if ! backup_network; then
+        release_lock "network_config"
+        return 1
+    fi
 
     # 配置 WAN 为静态 IP
     uci set network.wan.proto='static'
@@ -279,12 +316,17 @@ apply_static() {
     fi
 
     # 应用高级设置
-    apply_advanced_settings
+    if ! apply_advanced_settings; then
+        release_lock "network_config"
+        return 1
+    fi
 
     uci commit network
 
     # 重启网络
     /etc/init.d/network restart 2>/dev/null &
+
+    release_lock "network_config"
     echo "Static IP configuration applied"
     return 0
 }
