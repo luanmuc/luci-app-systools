@@ -7,8 +7,8 @@
 # 自动备份，失败回滚
 
 BACKUP_DIR="/etc/systools/backup/side_route"
-BACKUP_FILE="BACKUP_DIR/side_route_$(date +%Y%m%d_%H%M%S).tar.gz"
-LATEST_BACKUP="BACKUP_DIR/side_route_latest.tar.gz"
+BACKUP_FILE="$BACKUP_DIR/side_route_$(date +%Y%m%d_%H%M%S).tar.gz"
+LATEST_BACKUP="$BACKUP_DIR/side_route_latest.tar.gz"
 MODE_FILE="/etc/systools/side_route_mode"
 
 # 确保备份目录存在
@@ -148,9 +148,13 @@ enable_side_route() {
     # 先备份
     backup_config || return 1
 
-    # 检测当前网络
+    # 检测当前网络（安全解析，避免eval注入）
     local lan_ip gateway dns
-    eval $(detect_network)
+    local detect_output
+    detect_output=$(detect_network)
+    lan_ip=$(echo "$detect_output" | grep "^lan_ip=" | cut -d= -f2)
+    gateway=$(echo "$detect_output" | grep "^gateway=" | cut -d= -f2)
+    dns=$(echo "$detect_output" | grep "^dns=" | cut -d= -f2)
 
     if [ -z "$lan_ip" ] || [ -z "$gateway" ]; then
         log_error "Cannot detect network configuration"

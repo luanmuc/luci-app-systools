@@ -54,7 +54,6 @@ rollback_config() {
     echo "配置已回滚"
 }
 
-    # ===== 步骤5：重启 Docker =====
 # 重启 Docker 服务
 restart_docker() {
     echo "正在重启 Docker 服务..."
@@ -91,10 +90,14 @@ migrate_data_root() {
     fi
     log_audit "docker_migrate_start" "$target_path=$1"
     local new_path="$1"
-    check_docker || return 1
+    if ! check_docker; then
+        release_lock "docker_migrate"
+        return 1
+    fi
 
     if [ -z "$new_path" ]; then
         log_error "请指定目标路径"
+        release_lock "docker_migrate"
         return 1
     fi
 
@@ -114,12 +117,14 @@ migrate_data_root() {
     if [ ! -d "$new_path" ]; then
         log_error "目标路径不存在: $new_path"
         echo "请先挂载 U 盘并创建目录"
+        release_lock "docker_migrate"
         return 1
     fi
 
     # 检查目标路径是否可写
     if ! touch "$new_path/.test_write" 2>/dev/null; then
         log_error "目标路径不可写: $new_path"
+        release_lock "docker_migrate"
         return 1
     fi
     rm -f "$new_path/.test_write"
@@ -185,7 +190,7 @@ migrate_data_root() {
         # 创建新配置
         cat > "$daemon_json" <<EOF
 {
-  "data-root": $new_path"
+  "data-root": "$new_path"
 }
 EOF
     fi
@@ -271,12 +276,14 @@ format_disk() {
     fi
     if [ -z "$device" ]; then
         log_error "请指定设备路径"
+        release_lock "disk_format"
         return 1
     fi
 
     # 检查设备是否存在
     if [ ! -b "$device" ]; then
         log_error "设备不存在: $device"
+        release_lock "disk_format"
         return 1
     fi
 
@@ -291,6 +298,7 @@ format_disk() {
         echo "设备已挂载，正在卸载..."
         umount "$device" 2>/dev/null || {
             log_error "卸载设备失败"
+            release_lock "disk_format"
             return 1
         }
         echo "卸载完成"
@@ -299,6 +307,7 @@ format_disk() {
     # 检查是否安装了mkfs.ext4
     if ! command -v mkfs.ext4 >/dev/null 2>&1; then
         log_error "缺少 mkfs.ext4 工具，请先安装 e2fsprogs"
+        release_lock "disk_format"
         return 1
     fi
 
@@ -312,10 +321,12 @@ format_disk() {
         log_info "========================================"
         log_info "格式化完成！"
         log_info "========================================"
+        release_lock "disk_format"
         return 0
     else
         echo ""
         log_error "格式化失败"
+        release_lock "disk_format"
         return 1
     fi
 }

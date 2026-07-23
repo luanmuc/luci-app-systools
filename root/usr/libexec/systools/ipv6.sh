@@ -7,8 +7,8 @@
 # 自动备份，失败回滚
 
 BACKUP_DIR="/etc/systools/backup/ipv6"
-BACKUP_FILE="BACKUP_DIR/ipv6_$(date +%Y%m%d_%H%M%S).tar.gz"
-LATEST_BACKUP="BACKUP_DIR/ipv6_latest.tar.gz"
+BACKUP_FILE="$BACKUP_DIR/ipv6_$(date +%Y%m%d_%H%M%S).tar.gz"
+LATEST_BACKUP="$BACKUP_DIR/ipv6_latest.tar.gz"
 
 # 确保备份目录存在
 mkdir -p "$BACKUP_DIR"
@@ -173,6 +173,11 @@ apply_6in4() {
 
     if [ -z "$peeraddr" ]; then
         log_error "peer address required"
+        return 1
+    fi
+
+    if ! is_valid_ip "$peeraddr"; then
+        log_error "Invalid peer address format: $peeraddr"
         return 1
     fi
 

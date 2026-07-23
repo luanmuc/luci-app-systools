@@ -8,8 +8,8 @@
 . /usr/libexec/systools/systools-common.sh
 
 BACKUP_DIR="/etc/systools/backup/network"
-BACKUP_FILE="BACKUP_DIR/network_$(date +%Y%m%d_%H%M%S).tar.gz"
-LATEST_BACKUP="BACKUP_DIR/network_latest.tar.gz"
+BACKUP_FILE="$BACKUP_DIR/network_$(date +%Y%m%d_%H%M%S).tar.gz"
+LATEST_BACKUP="$BACKUP_DIR/network_latest.tar.gz"
 
 # 确保备份目录存在
 mkdir -p "$BACKUP_DIR"
@@ -120,11 +120,19 @@ parse_advanced_args() {
 apply_advanced_settings() {
     # MAC 地址克隆
     if [ -n "$ADV_MAC" ]; then
+        if ! is_valid_mac "$ADV_MAC"; then
+            log_error "Invalid MAC address format: $ADV_MAC"
+            return 1
+        fi
         uci set network.wan.macaddr="$ADV_MAC"
     fi
 
     # MTU 设置
     if [ -n "$ADV_MTU" ]; then
+        if ! echo "$ADV_MTU" | grep -qE '^[0-9]+$' || [ "$ADV_MTU" -lt 576 ] || [ "$ADV_MTU" -gt 9000 ]; then
+            log_error "Invalid MTU value: $ADV_MTU (must be 576-9000)"
+            return 1
+        fi
         uci set network.wan.mtu="$ADV_MTU"
     fi
 
