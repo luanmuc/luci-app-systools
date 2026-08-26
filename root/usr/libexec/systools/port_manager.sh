@@ -92,13 +92,24 @@ get_physical_ports() {
 # 获取LAN口列表（br-lan的ports）
 get_lan_ports() {
     local ports=""
-    # 尝试获取br-lan的ports（新语法config device）
-    local br_ports
-    br_ports=$(uci get network.@device[0].ports 2>/dev/null)
-    if [ -n "$br_ports" ]; then
-        ports="$br_ports"
-    else
-        # 旧语法：直接在interface lan中设置ifname
+    # 遍历所有device section，找到name='br-lan'的那个
+    local dev_idx=0
+    while [ $dev_idx -lt 10 ]; do
+        local dev_name
+        dev_name=$(uci get network.@device[$dev_idx].name 2>/dev/null)
+        if [ "$dev_name" = "br-lan" ]; then
+            local br_ports
+            br_ports=$(uci get network.@device[$dev_idx].ports 2>/dev/null)
+            if [ -n "$br_ports" ]; then
+                ports="$br_ports"
+            fi
+            break
+        fi
+        dev_idx=$((dev_idx + 1))
+    done
+
+    # 如果没找到config device，尝试旧语法：直接在interface lan中设置ifname
+    if [ -z "$ports" ]; then
         local ifname
         ifname=$(uci get network.lan.ifname 2>/dev/null)
         if [ -n "$ifname" ]; then
