@@ -136,8 +136,8 @@ jobs:
           # 创建 package 目录
           mkdir -p $SDK_DIR/package/$FEED_NAME
           echo "已创建 package/$FEED_NAME 目录"
-          # 复制插件源码
-          cp -r $PKG_DIR/* $SDK_DIR/package/$FEED_NAME/
+          # 复制插件源码（排除sdk目录和.git目录，避免递归复制）
+          rsync -a --exclude='sdk' --exclude='.git' --exclude='output' $PKG_DIR/ $SDK_DIR/package/$FEED_NAME/
           echo "已复制插件源码"
           echo ""
           echo "包目录内容:"
