@@ -9,8 +9,8 @@ on:
         type: choice
         options:
           - all
-          - '24.12'
-          - '25.12'
+          - '24.10.8'
+          - 'snapshots'
   push:
     tags:
       - 'v*'
@@ -27,10 +27,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - openwrt_version: '24.12'
+          - openwrt_version: '24.10.8'
             package_format: 'ipk'
             sdk_target: 'x86/64'
-          - openwrt_version: '25.12'
+          - openwrt_version: 'snapshots'
             package_format: 'apk'
             sdk_target: 'x86/64'
     steps:
@@ -78,18 +78,48 @@ jobs:
           echo "==================== 下载 SDK ===================="
           VERSION=${{ matrix.openwrt_version }}
           TARGET=${{ matrix.sdk_target }}
-          # SDK 下载 URL
-          SDK_FILE="openwrt-sdk-${VERSION}-${TARGET//\//_}_gcc-13.3.0_musl.Linux-x86_64.tar.xz"
-          SDK_URL="https://downloads.openwrt.org/releases/${VERSION}/targets/${TARGET}/${SDK_FILE}"
+
+          # 构建SDK目录URL
+          if [ "$VERSION" = "snapshots" ]; then
+            SDK_DIR_URL="https://downloads.openwrt.org/snapshots/targets/${TARGET}/"
+          else
+            SDK_DIR_URL="https://downloads.openwrt.org/releases/${VERSION}/targets/${TARGET}/"
+          fi
+
+          echo "SDK 目录 URL: $SDK_DIR_URL"
+
+          # 动态获取SDK文件名（从目录页面解析）
+          SDK_FILE=$(curl -s "$SDK_DIR_URL" | grep -o 'href="[^"]*sdk[^"]*"' | head -1 | sed 's/href="//;s/"//')
+
+          if [ -z "$SDK_FILE" ]; then
+            echo "错误: 无法从目录页面获取SDK文件名"
+            echo "目录页面内容:"
+            curl -s "$SDK_DIR_URL" | head -50
+            exit 1
+          fi
+
+          SDK_URL="${SDK_DIR_URL}${SDK_FILE}"
           echo "SDK 文件名: $SDK_FILE"
           echo "SDK 下载地址: $SDK_URL"
           echo ""
           echo "正在下载 SDK..."
-          curl -fSL --retry 3 --retry-delay 5 "$SDK_URL" -o sdk.tar.xz
-          tar -xf sdk.tar.xz
+          curl -fSL --retry 3 --retry-delay 5 "$SDK_URL" -o sdk_archive
+
+          # 根据文件扩展名解压
+          if echo "$SDK_FILE" | grep -q "\.tar\.zst$"; then
+            echo "检测到 .tar.zst 格式"
+            tar --zstd -xf sdk_archive
+          elif echo "$SDK_FILE" | grep -q "\.tar\.xz$"; then
+            echo "检测到 .tar.xz 格式"
+            tar -xf sdk_archive
+          else
+            echo "未知压缩格式，尝试通用解压..."
+            tar -xf sdk_archive
+          fi
+
           mv openwrt-sdk-* sdk
           echo "SDK 下载成功"
-          echo "SDK 大小: $(du -h sdk.tar.xz | cut -f1)"
+          echo "SDK 大小: $(du -h sdk_archive | cut -f1)"
           echo ""
           echo "SDK 目录内容:"
           ls -la sdk/
@@ -396,8 +426,8 @@ jobs:
           - **提交**：${GITHUB_SHA::7}
           
           ### 支持的 OpenWrt 版本
-          - OpenWrt 24.12（ipk 包格式）
-          - OpenWrt 25.12（apk 包格式）
+          - OpenWrt 24.10.8（ipk 包格式）
+          - OpenWrt snapshots（apk 包格式）
           
           ### 架构支持
           - 纯脚本/Lua 实现，架构无关（all）
@@ -405,14 +435,14 @@ jobs:
           
           ### 安装方法
           
-          #### OpenWrt 24.12（ipk）
+          #### OpenWrt 24.10.8（ipk）
           \`\`\`bash
           # 上传 ipk 文件到路由器后执行
           opkg update
           opkg install luci-app-systools_${VERSION}-1_all.ipk
           \`\`\`
           
-          #### OpenWrt 25.12（apk）
+          #### OpenWrt snapshots（apk）
           \`\`\`bash
           # 上传 apk 文件到路由器后执行
           apk update
@@ -439,7 +469,7 @@ jobs:
           - HA 网络设置（端口管理、mDNS、UPnP）
           
           ### 其他特性
-          - 多版本兼容（24.12 / 25.12）
+          - 多版本兼容（24.10.8 / snapshots）
           - Argon 主题深度适配
           - 暗色模式支持
           - 纯脚本/Lua 实现，架构无关
