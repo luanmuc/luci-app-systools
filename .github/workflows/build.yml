@@ -12,6 +12,12 @@ on:
           - '24.10.8'
           - 'snapshots'
   push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
     tags:
       - 'v*'
 env:
